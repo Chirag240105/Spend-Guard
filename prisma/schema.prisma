@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Policy {
+  id                String   @id @default(cuid())
+  name              String
+  naturalLanguage   String   @db.Text
+  compiledPolicy    Json
+  version           Int      @default(1)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  transactions      Transaction[]
+  decisions         Decision[]
+  auditLogs         AuditLog[]
+}
+
+model Transaction {
+  id                String   @id @default(cuid())
+  amount            Float
+  currency          String   @default("INR")
+  merchant          String
+  category          String
+  timestamp         DateTime @default(now())
+  agentId           String
+  metadata          Json?
+  policyId          String
+  policy            Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  decision          Decision?
+  auditLogs         AuditLog[]
+
+  @@index([agentId])
+  @@index([policyId])
+}
+
+model Decision {
+  id                String   @id @default(cuid())
+  transactionId     String   @unique
+  transaction       Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  policyId          String
+  policy            Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  decision          String   // "ALLOW" | "HOLD" | "BLOCK"
+  reason            String   @db.Text
+  ruleResults       Json     // Array of rule evaluation results
+  confidence        Float?
+  source            String   // "DETERMINISTIC" | "AI" | "HUMAN_OVERRIDE"
+  createdAt         DateTime @default(now())
+
+  @@index([policyId])
+}
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  transactionId     String?
+  transaction       Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  policyId          String?
+  policy            Policy?  @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  event             String   // "POLICY_CREATED", "TRANSACTION_RECEIVED", "DECISION_MADE", "HUMAN_OVERRIDE", etc.
+  actor             String   // "SYSTEM", "USER", "AI", etc.
+  details           Json?
+  createdAt         DateTime @default(now())
+
+  @@index([policyId])
+  @@index([transactionId])
+}

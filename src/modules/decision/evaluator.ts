@@ -1,0 +1,226 @@
+import { Transaction } from '../transaction/transaction.types';
+import { CompiledPolicy } from '../policy/policy.types';
+import { DecisionResult, DecisionType, RuleEvaluation } from './decision.types';
+
+export interface SpendingContext {
+  dailySpent: number;
+  weeklySpent: number;
+  monthlySpent: number;
+  lastReset?: {
+    daily: Date;
+    weekly: Date;
+    monthly: Date;
+  };
+}
+
+/**
+ * Evaluates a transaction against a policy using deterministic rules
+ * Does NOT call AI - only applies hard policy rules
+ */
+export function evaluateTransaction(
+  transaction: Transaction,
+  policy: CompiledPolicy,
+  spendingContext: SpendingContext
+): DecisionResult {
+  const rules: RuleEvaluation[] = [];
+  const explanations: string[] = [];
+
+  // Normalize category for comparison
+  const txCategory = transaction.category.toLowerCase().replace(/\s+/g, '_');
+  const txMerchant = transaction.merchant.toLowerCase();
+
+  // Rule 1: Check per-transaction limit
+  if (policy.limits.perTransaction) {
+    const passed = transaction.amount <= policy.limits.perTransaction;
+    rules.push({
+      rule: `Per-transaction limit: ₹${policy.limits.perTransaction}`,
+      passed,
+      message: passed
+        ? `✓ Amount (₹${transaction.amount}) within limit`
+        : `✕ Amount (₹${transaction.amount}) exceeds per-transaction limit (₹${policy.limits.perTransaction})`,
+    });
+    if (!passed) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 2: Check daily limit
+  if (policy.limits.daily) {
+    const newDaily = spendingContext.dailySpent + transaction.amount;
+    const passed = newDaily <= policy.limits.daily;
+    rules.push({
+      rule: `Daily limit: ₹${policy.limits.daily}`,
+      passed,
+      message: passed
+        ? `✓ Daily total (₹${newDaily}) within limit`
+        : `✕ Daily total (₹${newDaily}) exceeds daily limit (₹${policy.limits.daily})`,
+    });
+    if (!passed) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 3: Check weekly limit
+  if (policy.limits.weekly) {
+    const newWeekly = spendingContext.weeklySpent + transaction.amount;
+    const passed = newWeekly <= policy.limits.weekly;
+    rules.push({
+      rule: `Weekly limit: ₹${policy.limits.weekly}`,
+      passed,
+      message: passed
+        ? `✓ Weekly total (₹${newWeekly}) within limit`
+        : `✕ Weekly total (₹${newWeekly}) exceeds weekly limit (₹${policy.limits.weekly})`,
+    });
+    if (!passed) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 4: Check monthly limit
+  if (policy.limits.monthly) {
+    const newMonthly = spendingContext.monthlySpent + transaction.amount;
+    const passed = newMonthly <= policy.limits.monthly;
+    rules.push({
+      rule: `Monthly limit: ₹${policy.limits.monthly}`,
+      passed,
+      message: passed
+        ? `✓ Monthly total (₹${newMonthly}) within limit`
+        : `✕ Monthly total (₹${newMonthly}) exceeds monthly limit (₹${policy.limits.monthly})`,
+    });
+    if (!passed) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 5: Check blocked categories - HARD BLOCK
+  if (policy.categories.blocked && policy.categories.blocked.length > 0) {
+    const isBlocked = policy.categories.blocked.some(
+      (c) => c.toLowerCase().replace(/\s+/g, '_') === txCategory
+    );
+    rules.push({
+      rule: 'Blocked category check',
+      passed: !isBlocked,
+      message: isBlocked
+        ? `✕ Category "${transaction.category}" is explicitly blocked`
+        : `✓ Category "${transaction.category}" is not blocked`,
+    });
+    if (isBlocked) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 6: Check allowed categories - if allowlist exists, enforce it
+  if (policy.categories.allowed && policy.categories.allowed.length > 0) {
+    const isAllowed = policy.categories.allowed.some(
+      (c) => c.toLowerCase().replace(/\s+/g, '_') === txCategory
+    );
+    rules.push({
+      rule: 'Allowed category check',
+      passed: isAllowed,
+      message: isAllowed
+        ? `✓ Category "${transaction.category}" is allowed`
+        : `✕ Category "${transaction.category}" is not in allowed list`,
+    });
+    if (!isAllowed) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 7: Check blocked merchants
+  if (policy.merchants?.blocked && policy.merchants.blocked.length > 0) {
+    const isMerchantBlocked = policy.merchants.blocked.some(
+      (m) => m.toLowerCase() === txMerchant
+    );
+    rules.push({
+      rule: 'Blocked merchant check',
+      passed: !isMerchantBlocked,
+      message: isMerchantBlocked
+        ? `✕ Merchant "${transaction.merchant}" is blocked`
+        : `✓ Merchant "${transaction.merchant}" is not blocked`,
+    });
+    if (isMerchantBlocked) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 8: Check allowed merchants - if allowlist exists, enforce it
+  if (policy.merchants?.allowed && policy.merchants.allowed.length > 0) {
+    const isMerchantAllowed = policy.merchants.allowed.some(
+      (m) => m.toLowerCase() === txMerchant
+    );
+    rules.push({
+      rule: 'Allowed merchant check',
+      passed: isMerchantAllowed,
+      message: isMerchantAllowed
+        ? `✓ Merchant "${transaction.merchant}" is allowed`
+        : `✕ Merchant "${transaction.merchant}" is not in allowed list`,
+    });
+    if (!isMerchantAllowed) explanations.push(rules[rules.length - 1].message);
+  }
+
+  // Rule 9: Check approval threshold - HOLD if above threshold
+  let requiresApproval = false;
+  if (policy.approval?.aboveAmount) {
+    const exceedsThreshold = transaction.amount > policy.approval.aboveAmount;
+    rules.push({
+      rule: `Approval threshold: ₹${policy.approval.aboveAmount}`,
+      passed: !exceedsThreshold,
+      message: exceedsThreshold
+        ? `⚠ Amount (₹${transaction.amount}) exceeds approval threshold (₹${policy.approval.aboveAmount})`
+        : `✓ Amount (₹${transaction.amount}) within approval threshold`,
+    });
+    if (exceedsThreshold) requiresApproval = true;
+  }
+
+  // Determine final decision
+  let decision: DecisionType = 'ALLOW';
+
+  // Check if any hard block rule failed
+  const blockedRules = [
+    'Blocked category check',
+    'Blocked merchant check',
+    'Per-transaction limit: ₹' + policy.limits.perTransaction,
+    'Daily limit: ₹' + policy.limits.daily,
+    'Weekly limit: ₹' + policy.limits.weekly,
+    'Monthly limit: ₹' + policy.limits.monthly,
+  ];
+
+  const hasHardBlock = rules.some(
+    (r) =>
+      !r.passed &&
+      blockedRules.some((br) => r.rule.startsWith(br.split(':')[0]))
+  );
+
+  if (hasHardBlock) {
+    decision = 'BLOCK';
+  } else if (!policy.categories.allowed && !policy.categories.blocked) {
+    // No category restrictions
+    if (requiresApproval) {
+      decision = 'HOLD';
+    }
+  } else if (
+    !rules.every((r) => r.passed) ||
+    requiresApproval
+  ) {
+    // Some rule failed or approval required
+    if (rules.some((r) => !r.passed && r.rule.includes('Allowed category'))) {
+      decision = 'HOLD'; // Unknown category
+    } else if (requiresApproval) {
+      decision = 'HOLD';
+    } else {
+      decision = 'ALLOW';
+    }
+  }
+
+  // Final validation: must have all non-optional rules pass for ALLOW
+  const criticalRulesFailed = rules.filter(
+    (r) => !r.passed && (r.rule.includes('category') || r.rule.includes('limit'))
+  );
+
+  if (
+    decision === 'ALLOW' &&
+    criticalRulesFailed.length > 0 &&
+    !requiresApproval
+  ) {
+    decision = 'HOLD';
+  }
+
+  return {
+    decision,
+    reasons: rules,
+    source: 'DETERMINISTIC',
+    explanation: explanations.length > 0 
+      ? explanations.join('. ')
+      : decision === 'ALLOW'
+        ? 'Transaction approved by policy rules'
+        : decision === 'HOLD'
+          ? 'Transaction requires human review'
+          : 'Transaction blocked by policy',
+  };
+}
