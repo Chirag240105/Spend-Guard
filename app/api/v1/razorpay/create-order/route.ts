@@ -24,17 +24,19 @@ export async function POST(req: NextRequest) {
     );
 
     const provider = getPaymentProvider();
+    const payment = await PaymentService.createCheckoutPayment(order.id, provider);
     const gatewayOrder = await provider.createOrder({
       amount: body.amount,
       currency: body.currency,
       receipt: order.id,
-      notes: { internalOrderId: order.id, merchantId: body.merchantId },
+      notes: { internalOrderId: order.id, paymentId: payment.id, merchantId: body.merchantId },
     });
     await PaymentService.attachGatewayOrder(order.id, gatewayOrder.orderId);
 
     return NextResponse.json(
       {
         internalOrderId: order.id,
+        paymentId: payment.id,
         razorpayOrderId: gatewayOrder.orderId,
         amount: body.amount,
         currency: body.currency,

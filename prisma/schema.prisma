@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,35 +8,33 @@ datasource db {
 }
 
 model Policy {
-  id              String   @id @default(cuid())
+  id              String        @id @default(cuid())
   name            String
-  naturalLanguage String   @db.Text
+  naturalLanguage String
   compiledPolicy  Json
-  version         Int      @default(1)
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  transactions Transaction[]
-  decisions    Decision[]
-  auditLogs    AuditLog[]
+  version         Int           @default(1)
+  active          Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  auditLogs       AuditLog[]
+  decisions       Decision[]
+  transactions    Transaction[]
 }
 
 model Transaction {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   amount    Float
-  currency  String   @default("INR")
+  currency  String     @default("INR")
   merchant  String
   category  String
-  timestamp DateTime @default(now())
+  timestamp DateTime   @default(now())
   agentId   String
   metadata  Json?
   policyId  String
-  policy    Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  decision  Decision?
+  createdAt DateTime   @default(now())
   auditLogs AuditLog[]
+  decision  Decision?
+  policy    Policy     @relation(fields: [policyId], references: [id], onDelete: Cascade)
 
   @@index([agentId])
   @@index([policyId])
@@ -48,15 +43,15 @@ model Transaction {
 model Decision {
   id            String      @id @default(cuid())
   transactionId String      @unique
-  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   policyId      String
-  policy        Policy      @relation(fields: [policyId], references: [id], onDelete: Cascade)
-  decision      String // "ALLOW" | "HOLD" | "BLOCK"
-  reason        String      @db.Text
-  ruleResults   Json // Array of rule evaluation results
+  decision      String
+  reason        String
+  ruleResults   Json
   confidence    Float?
-  source        String // "DETERMINISTIC" | "AI" | "HUMAN_OVERRIDE"
+  source        String
   createdAt     DateTime    @default(now())
+  policy        Policy      @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([policyId])
 }
@@ -64,54 +59,16 @@ model Decision {
 model AuditLog {
   id            String       @id @default(cuid())
   transactionId String?
-  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
   policyId      String?
-  policy        Policy?      @relation(fields: [policyId], references: [id], onDelete: SetNull)
-  event         String // "POLICY_CREATED", "TRANSACTION_RECEIVED", "DECISION_MADE", "HUMAN_OVERRIDE", etc.
-  actor         String // "SYSTEM", "USER", "AI", etc.
+  event         String
+  actor         String
   details       Json?
   createdAt     DateTime     @default(now())
+  policy        Policy?      @relation(fields: [policyId], references: [id])
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
 
   @@index([policyId])
   @@index([transactionId])
-}
-
-// LedgerFlow models. Legacy SpendGuard models above are deliberately retained so
-// an upgrade does not discard existing development data.
-enum PaymentStatus {
-  CREATED
-  ATTEMPTED
-  SUCCESS
-  FAILED
-  AI_DIAGNOSIS
-  RECOVERY_PENDING
-  RETRYING
-  HUMAN_REVIEW
-  APPROVED
-  REJECTED
-  DO_NOT_RETRY
-}
-
-enum AttemptOutcome {
-  SUCCESS
-  FAILED
-}
-
-enum LedgerEntryType {
-  debit
-  credit
-}
-
-enum ApprovalStatus {
-  pending
-  approved
-  rejected
-}
-
-enum DeliveryStatus {
-  pending
-  delivered
-  failed
 }
 
 model Merchant {
@@ -125,15 +82,15 @@ model Merchant {
 }
 
 model Order {
-  id         String    @id @default(cuid())
-  merchantId String
-  merchant   Merchant  @relation(fields: [merchantId], references: [id])
-  amount     Decimal   @db.Decimal(18, 2)
-  currency   String    @default("INR")
-  status     String    @default("CREATED")
-  gatewayOrderId String? @unique
-  createdAt  DateTime  @default(now())
-  payments   Payment[]
+  id             String    @id @default(cuid())
+  merchantId     String
+  amount         Decimal   @db.Decimal(18, 2)
+  currency       String    @default("INR")
+  status         String    @default("CREATED")
+  createdAt      DateTime  @default(now())
+  gatewayOrderId String?   @unique
+  merchant       Merchant  @relation(fields: [merchantId], references: [id])
+  payments       Payment[]
 
   @@index([merchantId, createdAt])
 }
@@ -141,17 +98,22 @@ model Order {
 model Payment {
   id                 String              @id @default(cuid())
   orderId            String
-  order              Order               @relation(fields: [orderId], references: [id])
   status             PaymentStatus       @default(CREATED)
   retryCount         Int                 @default(0)
   provider           String              @default("mock")
   failureReason      String?
-  gatewayPaymentId   String?             @unique
+  razorpayOrderId    String?             @unique
+  razorpayPaymentId  String?             @unique
+  razorpaySignature  String?
+  checkoutStatus     String              @default("INITIALIZED")
+  verifiedAt         DateTime?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
-  attempts           PaymentAttempt[]
-  ledgerTransactions LedgerTransaction[]
+  gatewayPaymentId   String?             @unique
   agentDecisions     AgentDecision[]
+  ledgerTransactions LedgerTransaction[]
+  order              Order               @relation(fields: [orderId], references: [id])
+  attempts           PaymentAttempt[]
 
   @@index([orderId, status])
 }
@@ -159,11 +121,11 @@ model Payment {
 model PaymentAttempt {
   id               String         @id @default(cuid())
   paymentId        String
-  payment          Payment        @relation(fields: [paymentId], references: [id])
   attemptNumber    Int
   outcome          AttemptOutcome
   gatewayErrorCode String?
   createdAt        DateTime       @default(now())
+  payment          Payment        @relation(fields: [paymentId], references: [id])
 
   @@unique([paymentId, attemptNumber])
 }
@@ -171,20 +133,20 @@ model PaymentAttempt {
 model LedgerTransaction {
   id        String        @id @default(cuid())
   paymentId String?
-  payment   Payment?      @relation(fields: [paymentId], references: [id])
   createdAt DateTime      @default(now())
   entries   LedgerEntry[]
+  payment   Payment?      @relation(fields: [paymentId], references: [id])
 }
 
 model LedgerEntry {
   id                  String            @id @default(cuid())
   ledgerTransactionId String
-  ledgerTransaction   LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id])
   accountId           String
-  account             LedgerAccount     @relation(fields: [accountId], references: [id])
   type                LedgerEntryType
   amount              Decimal           @db.Decimal(18, 2)
   createdAt           DateTime          @default(now())
+  account             LedgerAccount     @relation(fields: [accountId], references: [id])
+  ledgerTransaction   LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id])
 
   @@index([ledgerTransactionId])
 }
@@ -226,11 +188,11 @@ model OutboxEvent {
 model AgentDecision {
   id            String         @id @default(cuid())
   paymentId     String
-  payment       Payment        @relation(fields: [paymentId], references: [id])
   inputSnapshot Json
   output        Json
   policyAction  String
   createdAt     DateTime       @default(now())
+  payment       Payment        @relation(fields: [paymentId], references: [id])
   approval      HumanApproval?
 
   @@index([paymentId, createdAt])
@@ -239,10 +201,10 @@ model AgentDecision {
 model HumanApproval {
   id              String         @id @default(cuid())
   agentDecisionId String         @unique
-  agentDecision   AgentDecision  @relation(fields: [agentDecisionId], references: [id])
   status          ApprovalStatus @default(pending)
   reviewedBy      String?
   reviewedAt      DateTime?
+  agentDecision   AgentDecision  @relation(fields: [agentDecisionId], references: [id])
 
   @@index([status])
 }
@@ -250,7 +212,6 @@ model HumanApproval {
 model WebhookEvent {
   id             String         @id @default(cuid())
   merchantId     String
-  merchant       Merchant       @relation(fields: [merchantId], references: [id])
   eventType      String
   dedupeKey      String
   payload        Json
@@ -258,31 +219,68 @@ model WebhookEvent {
   attempts       Int            @default(0)
   nextRetryAt    DateTime?
   createdAt      DateTime       @default(now())
+  merchant       Merchant       @relation(fields: [merchantId], references: [id])
 
   @@unique([merchantId, dedupeKey])
   @@index([deliveryStatus, nextRetryAt])
 }
-// ── Authentication ──────────────────────────────────────────────────────────
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String
   passwordHash String
-  role         String   @default("REVIEWER") // REVIEWER | ADMIN
+  role         String   @default("REVIEWER")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
 model Outbox {
-  id          String   @id @default(cuid())
-  eventType   String   // "payment.failed", "transaction.evaluated", etc.
+  id          String    @id @default(cuid())
+  eventType   String
   payload     Json
-  aggregateId String   // e.g., transactionId
-  status      String   @default("pending") // "pending" | "dispatched" | "failed"
-  retryCount  Int      @default(0)
-  createdAt   DateTime @default(now())
+  aggregateId String
+  status      String    @default("pending")
+  retryCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
   processedAt DateTime?
 
   @@index([status, createdAt])
   @@index([eventType, status])
+}
+
+enum PaymentStatus {
+  CREATED
+  ATTEMPTED
+  SUCCESS
+  FAILED
+  AI_DIAGNOSIS
+  RECOVERY_PENDING
+  RETRYING
+  HUMAN_REVIEW
+  APPROVED
+  REJECTED
+  DO_NOT_RETRY
+}
+
+enum AttemptOutcome {
+  SUCCESS
+  FAILED
+}
+
+enum LedgerEntryType {
+  debit
+  credit
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum DeliveryStatus {
+  pending
+  delivered
+  failed
 }

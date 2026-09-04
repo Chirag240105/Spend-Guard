@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       );
     const provider = getPaymentProvider();
     const order = await PaymentService.createOrder(body.merchantId, body.amount, body.currency);
+    const payment = await PaymentService.createCheckoutPayment(order.id, provider);
     const gatewayOrder = await provider.createOrder({
       amount: body.amount,
       currency: body.currency,
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
     await PaymentService.attachGatewayOrder(order.id, gatewayOrder.orderId);
     const response = {
       order: { ...order, gatewayOrderId: gatewayOrder.orderId },
+      paymentId: payment.id,
       gatewayOrder,
       provider: provider.name,
       mode: provider.mode,

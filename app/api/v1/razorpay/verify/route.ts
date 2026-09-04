@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
       body.internalOrderId,
       body.razorpay_payment_id,
       provider.name.toLowerCase(),
+      body.razorpay_order_id,
+      body.razorpay_signature,
     );
     const response = { ok: true, paymentId: payment.id, status: payment.status };
     await completeIdempotency(idem.record.id, response);

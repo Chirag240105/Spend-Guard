@@ -85,6 +85,7 @@ export class RazorpayPaymentProvider implements PaymentProvider {
   }
 
   verifyWebhookSignature(payload: string | Buffer, signature: string): boolean {
+    if (!this.webhookSecret) return false;
     const content = typeof payload === 'string' ? payload : payload.toString('utf8');
     return signaturesEqual(createSignature(this.webhookSecret, content), signature);
   }
@@ -227,17 +228,15 @@ export class MockPaymentProvider implements PaymentProvider {
 export function getPaymentProvider(): PaymentProvider {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-  if (keyId && keySecret && webhookSecret) {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET ?? '';
+  if (keyId && keySecret) {
     return new RazorpayPaymentProvider(keyId, keySecret, webhookSecret);
   }
   return new MockPaymentProvider();
 }
 
 export function getConfiguredPaymentProviderKind(): PaymentProvider['mode'] {
-  return process.env.RAZORPAY_KEY_ID &&
-    process.env.RAZORPAY_KEY_SECRET &&
-    process.env.RAZORPAY_WEBHOOK_SECRET
+  return process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
     ? 'razorpay-test'
     : 'mock';
 }

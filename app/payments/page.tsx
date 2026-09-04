@@ -152,17 +152,32 @@ export default function PaymentsPage() {
           });
           if (!verified.ok) {
             const details = await verified.json().catch(() => ({}));
-            throw new Error(details.message ?? details.error ?? 'Payment verification failed');
+            setCheckoutMessage(details.message ?? details.error ?? 'Payment verification failed');
+            return;
           }
           setCheckoutMessage('Payment captured successfully.');
           await load();
         },
         modal: {
-          ondismiss: () => setCheckoutMessage('Checkout was closed before payment was completed.'),
+          ondismiss: () => {
+            setCheckoutMessage('Checkout was closed before payment was completed.');
+            void fetch('/api/v1/razorpay/failure', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paymentId: order.paymentId, status: 'PAYMENT_ABANDONED' }),
+            });
+          },
         },
       });
       checkout.on('payment.failed', (failure) => {
         const details = failure.error;
+        void fetch('/api/v1/razorpay/failure', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentId: order.paymentId,
+            status: 'PAYMENT_FAILED',
+            reason: details?.description ?? details?.reason ?? 'Razorpay payment failed',
+          }),
+        });
         setCheckoutMessage(
           `Razorpay declined the payment${details?.code ? ` (${details.code})` : ''}: ${details?.description ?? details?.reason ?? 'the test payment failed'}`,
         );
