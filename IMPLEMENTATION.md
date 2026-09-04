@@ -1,399 +1,152 @@
-# Phase 5: AI Policy Compiler Implementation - Complete
+# Spend Guard — Current Implementation Status
 
-**Status:** ✅ FULLY IMPLEMENTED
+**Last reviewed:** September 4, 2026
+**Overall status:** Core backend is implemented; the frontend is currently a landing page. Dashboard, payment execution, and a complete approval workflow remain.
 
----
+## What is implemented
 
-## 📋 What Was Built
+### Backend and infrastructure
 
-### 1. **Claude API Integration**
-- `src/modules/ai/claude-provider.ts`: Real Claude API calls using Anthropic SDK
-- Supports Claude 3.5 Sonnet model
-- Structured prompt engineering for policy extraction
-- Error handling and retry logic
-- Proper API key handling
+- PostgreSQL persistence through Prisma for policies, transactions, decisions, and audit logs.
+- Redis-backed daily, weekly, and monthly spend counters, including automatic expiry for each period.
+- Docker Compose configuration for PostgreSQL and Redis.
+- Prisma migrations and a demo-data seed script.
+- Health endpoint at `GET /api/health`.
 
-### 2. **Mock Provider (Fallback)**
-- `src/modules/ai/mock-provider.ts`: Keyword-based policy extraction
-- Works without API keys (perfect for CI/testing)
-- Intelligent keyword detection for:
-  - Numerical limits (daily, weekly, monthly, per-transaction)
-  - Category restrictions (allowed/blocked)
-  - Merchant restrictions
-  - Time windows
-  - Approval thresholds
-- Simulates processing delay for realism
+### Policy management
 
-### 3. **Policy Compiler Service**
-- `src/modules/ai/compiler.ts`: Orchestrates compilation workflow
-- Handles both Claude and mock providers
-- Automatic fallback if Claude fails
-- Zod validation of AI output
-- Conflict detection
-- Warning generation for incomplete policies
-- Comprehensive error handling
+- Natural-language policy compilation at `POST /api/policies/compile`.
+- Grok is the primary AI provider when `XAI_API_KEY` is configured.
+- Gemini is used as a fallback when `GEMINI_API_KEY` is configured; the keyword-based mock compiler is the final fallback.
+- Compiled policies are validated with Zod and checked for conflicts before saving.
+- Active-policy listing and individual policy retrieval are available:
+  - `GET /api/policies`
+  - `GET /api/policies/:policyId`
+- Policies store their original text, compiled JSON policy, version, active flag, and timestamps.
 
-### 4. **Transaction Evaluation Service**
-- `src/modules/transaction/transaction.evaluator.ts`: Complete evaluation pipeline
-- Deterministic decision engine
-- Redis spending context integration
-- Atomic spending counter updates
-- Audit logging integration
-- Human override support
-- Graceful Redis failure handling
+### Transaction decision engine
 
-### 5. **API Endpoints**
+- Transaction evaluation endpoint: `POST /api/transactions/evaluate`.
+- Deterministic decisioning only: the AI compiler converts policy text to structured data, but does not authorize a payment.
+- Supported rules:
+  - Per-transaction, daily, weekly, and monthly limits
+  - Allowed and blocked categories
+  - Allowed and blocked merchants
+  - Approval threshold (`HOLD`)
+- Decisions return `ALLOW`, `HOLD`, or `BLOCK`, with rule-by-rule results, an explanation, and the current spend context.
+- Transactions, decisions, and related audit events are persisted.
+- Read APIs are available for transaction decisions, a policy’s transactions, and a policy’s audit trail:
+  - `GET /api/transactions/:transactionId`
+  - `GET /api/policies/:policyId/transactions`
+  - `GET /api/policies/:policyId/audit`
 
-#### Policy Management
-- `POST /api/policies/compile` - Compile natural language to structured policy
-- `GET /api/policies` - List all active policies
-- `GET /api/policies/{policyId}` - Get specific policy
+### Audit trail
 
-#### Transaction Processing
-- `POST /api/transactions/evaluate` - Evaluate a transaction
-- `GET /api/policies/{policyId}/transactions` - List policy transactions
-- `GET /api/transactions/{transactionId}` - Get transaction details
+- Records policy creation, transaction receipt, decisions, spending-context errors, and human-override events.
+- Tracks the actor, policy, transaction, timestamp, and JSON event details.
 
-#### Audit & Monitoring
-- `GET /api/policies/{policyId}/audit` - Audit log for policy
-- `GET /api/health` - Health check endpoint
+### Frontend
 
-### 6. **Core Services Implemented**
+- A responsive Next.js landing page is implemented at `/`.
+- It communicates the product purpose and links to the health and policies APIs.
+- Global Tailwind styling and base app metadata are configured.
 
-#### Policy Service
-- Create policies with validation
-- Retrieve policies by ID
-- Update policies (with version tracking)
-- Deactivate policies
-- List active policies
+### Quality checks completed
 
-#### Decision Service
-- Record decisions with rule results
-- Query decisions by transaction
-- Retrieve policy-level statistics
-- Support for decision sources (DETERMINISTIC, AI, HUMAN_OVERRIDE)
+- ESLint passes: `npm run lint`
+- TypeScript passes: `npx tsc --noEmit`
+- Production build compiles: `npm run build`
+- Existing unit-test files cover the policy validator, mock compiler, and core evaluator. (There is currently no `test` script in `package.json`.)
 
-#### Audit Service
-- Log all significant events
-- Transaction-level audit trails
-- Policy-level event history
-- Actor tracking (SYSTEM, USER, AI_COMPILER)
-- Rich detail metadata
+## API surface currently available
 
-#### Transaction Service
-- Record transactions
-- Query by policy or agent
-- Full transaction history
-- Support for metadata/custom fields
+| Method | Endpoint | Status |
+| --- | --- | --- |
+| `GET` | `/api/health` | Implemented |
+| `POST` | `/api/policies/compile` | Implemented |
+| `GET` | `/api/policies` | Implemented |
+| `GET` | `/api/policies/:policyId` | Implemented |
+| `POST` | `/api/transactions/evaluate` | Implemented |
+| `GET` | `/api/transactions/:transactionId` | Implemented |
+| `GET` | `/api/policies/:policyId/transactions` | Implemented |
+| `GET` | `/api/policies/:policyId/audit` | Implemented |
 
-### 7. **Database Infrastructure**
-- Prisma ORM with PostgreSQL
-- Migration system (`prisma/migrations/`)
-- Schema supports:
-  - Policy storage with versioning
-  - Transaction recording with metadata
-  - Decision documentation with rule details
-  - Complete audit trail
+## What remains
 
-### 8. **Redis Integration**
-- Spending counter implementation
-- Daily/weekly/monthly tracking
-- Atomic operations for concurrency
-- Automatic expiry management
-- Fallback handling (HOLD on unavailability)
+### Frontend dashboard — not yet implemented
 
-### 9. **Decision Engine**
-Complete deterministic evaluation with:
-- **Per-transaction limits**: Hard block if exceeded
-- **Daily limits**: Calculated with current spending
-- **Weekly limits**: Calculated with current spending
-- **Monthly limits**: Calculated with current spending
-- **Category restrictions**: Hard block for blocked categories
-- **Category allowlist**: Ambiguous if not allowed
-- **Merchant restrictions**: Hard block for blocked merchants
-- **Approval thresholds**: HOLD if exceeded
-- **Time windows**: Support for time-based restrictions
+- Policy composer UI that calls the compile endpoint and displays validation warnings.
+- Policy list and policy-detail screens.
+- Transaction submission form and transaction feed.
+- Decision detail UI with rule results and spend context.
+- Audit-log viewer and spending analytics.
+- Human-review queue and approval/rejection controls.
 
-### 10. **Error Handling**
-- Graceful fallback to mock provider
-- Redis unavailability → HOLD (fail safely)
-- Invalid AI output → Validation failure
-- Policy conflicts detected and rejected
-- Detailed error messages in responses
+### Approval workflow — partial only
 
-### 11. **Testing**
-- Unit tests for evaluator logic
-- Policy validation tests
-- Mock provider tests
-- Test cases for ALLOW, HOLD, BLOCK decisions
-- Vitest configuration for running tests
+- Service methods exist to log approval/rejection events for `HOLD` decisions.
+- They do **not** update the stored decision from `HOLD` to `ALLOW` or `BLOCK`.
+- No API routes or frontend controls expose these service methods yet.
 
-### 12. **Documentation**
-- Comprehensive README with examples
-- API endpoint documentation
-- Decision type explanations
-- Configuration guide
-- Demo data script
-- Setup instructions
+### Payments — not implemented
 
----
+- No payment-provider abstraction or Razorpay adapter exists.
+- An `ALLOW` decision does not initiate, capture, cancel, or refund a payment.
+- Webhooks, payment idempotency, reconciliation, and payment-status persistence still need to be designed and implemented.
 
-## 🚀 Complete System Flow
+### Backend work still needed
 
-```
-User Input (Natural Language)
-         ↓
-   [Claude API]
-         ↓
-   (or Mock Provider if no key)
-         ↓
-   JSON Policy Output
-         ↓
-   [Zod Validation]
-         ↓
-   Conflict Detection
-         ↓
-   Save to PostgreSQL
-         ↓
-   Policy Created ✅
+- Add policy create/update/deactivate endpoints; the service layer has support beyond the current read/compile routes.
+- Add pagination, filtering, and authorization to list, transaction, and audit APIs.
+- Add authentication and role-based access control before any production deployment.
+- Add rate limiting, structured logging/monitoring, and production error reporting.
+- Complete time-window enforcement: the policy schema/compiler can represent a time window, but the deterministic evaluator does not currently apply it.
+- Improve the mock compiler’s parsing and add robust currency/merchant normalization.
+- Add a reliable Redis-outage fail-safe. The evaluator intends to place transactions on `HOLD` if spending context is unavailable, but the current Redis read helpers catch connection errors and return `0`; this can mask an outage and should be corrected before production use.
+- Avoid counting a `HOLD` transaction as spend until the approval outcome is finalized, or explicitly document that reservation behaviour is intended.
+- Replace Redis `KEYS` use in the reset helper with a safer approach for production-scale data.
 
----
+### Testing and delivery work still needed
 
-Transaction Submitted
-         ↓
-   Load Policy
-         ↓
-   Get Spending Context (Redis)
-         ↓
-   Deterministic Evaluation
-         ↓
-   ALLOW / HOLD / BLOCK
-         ↓
-   Save Decision (PostgreSQL)
-         ↓
-   Update Spending Counters (Redis)
-         ↓
-   Log to Audit Trail
-         ↓
-   Response to Client ✅
+- Add the missing `npm test` script and run the existing Vitest suites in CI.
+- Add API integration tests using PostgreSQL and Redis.
+- Add end-to-end tests for the dashboard and the approval path.
+- Add tests for provider fallback, Redis failures, time windows, concurrency, idempotency, and migration upgrades.
+- Configure CI/CD, environment validation, secrets management, backups, and deployment monitoring.
+
+## Current architecture
+
+```text
+Landing page / future dashboard
+              |
+              v
+        Next.js API routes
+              |
+    +---------+----------+
+    |                    |
+    v                    v
+Policy compiler     Transaction evaluator
+Grok -> Gemini      deterministic rules
+     -> Mock                |
+    |                 Redis spend context
+    v                    |
+PostgreSQL <-------------+---> PostgreSQL
+policies                    transactions, decisions, audit logs
 ```
 
----
+## Environment configuration
 
-## 📊 Key Features
-
-### Policy Compilation
-- ✅ Natural language interpretation
-- ✅ Structured JSON output
-- ✅ Zod validation
-- ✅ Conflict detection
-- ✅ Fallback to mock provider
-- ✅ Warning generation
-
-### Transaction Evaluation
-- ✅ Deterministic rule evaluation
-- ✅ Spending context integration
-- ✅ Atomic counter operations
-- ✅ Audit logging
-- ✅ Detailed explanations
-- ✅ Human override support
-
-### Resilience
-- ✅ Redis failure handling (HOLD)
-- ✅ Claude API failure fallback
-- ✅ Input validation
-- ✅ Output validation
-- ✅ Error messages
-- ✅ Graceful degradation
-
-### Production-Ready
-- ✅ TypeScript strict mode
-- ✅ Zod validation schemas
-- ✅ Prisma migrations
-- ✅ Comprehensive logging
-- ✅ Error handling
-- ✅ Database indexes
-- ✅ API documentation
-
----
-
-## 🔧 How to Use
-
-### 1. Start Infrastructure
-```bash
-docker compose up -d
-npx prisma migrate deploy
-```
-
-### 2. Compile a Policy
-```bash
-curl -X POST http://localhost:3000/api/policies/compile \
-  -H "Content-Type: application/json" \
-  -d '{
-    "naturalLanguage": "My agent can spend ₹2,000 per day on groceries. Block gaming. Approve amounts over ₹500."
-  }'
-```
-
-### 3. Evaluate a Transaction
-```bash
-curl -X POST http://localhost:3000/api/transactions/evaluate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "policyId": "policy_id_from_step_2",
-    "amount": 350,
-    "merchant": "Grocery Mart",
-    "category": "Groceries",
-    "agentId": "agent_001"
-  }'
-```
-
-### 4. Check Results
-- Transaction decision (ALLOW/HOLD/BLOCK)
-- Rule evaluation details
-- Spending context
-- Audit trail
-
----
-
-## 📁 Directory Structure
-
-```
-src/modules/
-├── ai/
-│   ├── claude-provider.ts      # Real Claude API
-│   ├── mock-provider.ts        # Fallback mock
-│   ├── compiler.ts             # Orchestration
-│   └── *.test.ts               # Tests
-├── policy/
-│   ├── policy.types.ts         # Schemas
-│   ├── policy.validator.ts     # Validation
-│   ├── policy.compiler.ts      # Interface
-│   ├── policy.explainer.ts     # Explanations
-│   ├── policy.service.ts       # Database operations
-│   └── *.test.ts
-├── transaction/
-│   ├── transaction.types.ts
-│   ├── transaction.service.ts
-│   └── transaction.evaluator.ts
-├── decision/
-│   ├── decision.types.ts
-│   ├── decision.service.ts
-│   ├── evaluator.ts            # Core logic
-│   └── *.test.ts
-├── audit/
-│   └── audit.service.ts
-└── infrastructure/
-    ├── database.ts             # Prisma client
-    └── redis.ts                # Redis client
-
-app/api/
-├── policies/
-│   ├── compile/route.ts        # POST /api/policies/compile
-│   ├── [policyId]/route.ts     # GET /api/policies/{id}
-│   ├── [policyId]/transactions/route.ts
-│   └── [policyId]/audit/route.ts
-├── transactions/
-│   ├── evaluate/route.ts       # POST /api/transactions/evaluate
-│   └── [transactionId]/route.ts
-└── health/route.ts             # Health check
-```
-
----
-
-## 🧪 Running Tests
-
-```bash
-npm test
-```
-
-Tests include:
-- ✅ Policy validator tests
-- ✅ Evaluator logic tests
-- ✅ Mock provider tests
-- ✅ Decision type tests
-- ✅ Limit enforcement tests
-- ✅ Category restriction tests
-- ✅ Hard block tests
-
----
-
-## 📝 Configuration
-
-### Required Environment Variables
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/spendguard
 REDIS_URL=redis://localhost:6379
+
+# Optional AI providers; mock compilation is used when neither is configured.
+XAI_API_KEY=...
+GEMINI_API_KEY=...
+GROK_MODEL=latest
+GEMINI_MODEL=gemini-3.8-flash
 ```
 
-### Optional
-```env
-ANTHROPIC_API_KEY=sk-ant-xxxxx  # If not set, uses mock provider
-```
+## Recommended next milestone
 
----
-
-## ⚠️ Known Limitations
-
-1. **Mock Provider**: Uses keyword extraction (not true NLP)
-   - Works well for demo
-   - May miss complex constraints
-   - Use Claude API for production
-
-2. **Time Windows**: Basic support (HH:MM format)
-   - Could be extended to cron-like expressions
-   - Timezone handling is basic
-
-3. **Merchant Matching**: Case-insensitive exact match
-   - Could use fuzzy matching
-   - Could integrate merchant database
-
-4. **Category Matching**: Predefined list in mock provider
-   - Real system might use merchant category codes
-   - Could integrate with payment processor categories
-
-5. **Redis Concurrency**: Uses WATCH/MULTI/EXEC
-   - Handles basic concurrency
-   - Could use Lua scripts for higher throughput
-   - Should be sufficient for MVP
-
----
-
-## 🎯 What's Next (Phase 6+)
-
-### Phase 6: Dashboard UI
-- Policy composer interface
-- Transaction feed
-- Decision details view
-- Audit log viewer
-- Human approval workflow
-
-### Phase 7: Payment Adapter
-- PaymentProvider interface
-- RazorpayAdapter
-- MockPaymentProvider
-- Payment integration
-
----
-
-## ✅ Checklist
-
-- ✅ Claude API integration
-- ✅ Mock fallback provider
-- ✅ Policy compilation
-- ✅ Transaction evaluation
-- ✅ Deterministic decision engine
-- ✅ Redis spending counters
-- ✅ Audit logging
-- ✅ API endpoints
-- ✅ Database schema
-- ✅ Zod validation
-- ✅ Error handling
-- ✅ Unit tests
-- ✅ Documentation
-- ✅ Demo scripts
-
----
-
-## 🚀 Ready for Phase 6: Dashboard
-
-The AI Policy Compiler is complete and ready for dashboard integration. All APIs are documented and tested. Phase 6 will build the user interface to interact with these APIs.
+Build the dashboard and complete the human-review workflow together: add authenticated policy and transaction views, API endpoints to resolve `HOLD` decisions, and persistence that records the final override. Payment-provider integration should follow once the authorization workflow is complete and verified.

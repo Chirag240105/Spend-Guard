@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { compilePolicy } from '@/src/modules/ai/compiler';
 import { PolicyService } from '@/src/modules/policy/policy.service';
 import { AuditService } from '@/src/modules/audit/audit.service';
+import { logRoute, rateLimit, requireApiKey } from '@/src/infrastructure/api';
 
 export async function POST(request: NextRequest) {
   try {
+    const denied = requireApiKey(request); if (denied) return denied;
+    const limited = rateLimit(request, 'compile', 10); if (limited) return limited;
     const body = await request.json();
     const { naturalLanguage } = body;
 
@@ -47,6 +50,7 @@ export async function POST(request: NextRequest) {
       undefined,
       policy.id
     );
+    logRoute('policy_compiled', { policyId: policy.id, usedMock: compilationResult.usedMock });
 
     return NextResponse.json(
       {

@@ -17,8 +17,7 @@ export interface PolicyCompilerResult {
  * Currently returns a placeholder
  */
 export async function compilePolicy(
-  naturalLanguage: string,
-  _apiKey?: string
+  naturalLanguage: string
 ): Promise<PolicyCompilerResult> {
   // This will be implemented in Phase 5 (AI module)
   // For now, return a placeholder structure

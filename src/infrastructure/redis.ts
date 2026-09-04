@@ -1,11 +1,13 @@
-import { createClient, RedisClientType } from 'redis';
+import { createClient } from 'redis';
 
-let redisClient: RedisClientType | null = null;
+type RedisClient = ReturnType<typeof createClient>;
+
+let redisClient: RedisClient | null = null;
 
 /**
  * Get or create Redis client
  */
-export async function getRedisClient(): Promise<RedisClientType> {
+export async function getRedisClient(): Promise<RedisClient> {
   if (redisClient && redisClient.isOpen) {
     return redisClient;
   }
@@ -33,15 +35,10 @@ export async function getRedisClient(): Promise<RedisClientType> {
  * Get daily spending for an agent on a given date
  */
 export async function getDailySpend(agentId: string, date: Date): Promise<number> {
-  try {
-    const client = await getRedisClient();
-    const key = `spend:daily:${agentId}:${date.toISOString().split('T')[0]}`;
-    const value = await client.get(key);
-    return value ? parseFloat(value) : 0;
-  } catch (error) {
-    console.error('Error getting daily spend:', error);
-    return 0;
-  }
+  const client = await getRedisClient();
+  const key = `spend:daily:${agentId}:${date.toISOString().split('T')[0]}`;
+  const value = await client.get(key);
+  return value ? parseFloat(value) : 0;
 }
 
 /**
@@ -66,7 +63,7 @@ export async function incrementDailySpend(
     if (ttlSeconds > 0) {
       await client.expire(key, ttlSeconds);
     }
-    return newValue;
+    return Number(newValue);
   } catch (error) {
     console.error('Error incrementing daily spend:', error);
     throw error;
@@ -77,16 +74,11 @@ export async function incrementDailySpend(
  * Get weekly spending for an agent
  */
 export async function getWeeklySpend(agentId: string, date: Date): Promise<number> {
-  try {
-    const client = await getRedisClient();
-    const weekStart = getWeekStart(date);
-    const key = `spend:weekly:${agentId}:${weekStart.toISOString().split('T')[0]}`;
-    const value = await client.get(key);
-    return value ? parseFloat(value) : 0;
-  } catch (error) {
-    console.error('Error getting weekly spend:', error);
-    return 0;
-  }
+  const client = await getRedisClient();
+  const weekStart = getWeekStart(date);
+  const key = `spend:weekly:${agentId}:${weekStart.toISOString().split('T')[0]}`;
+  const value = await client.get(key);
+  return value ? parseFloat(value) : 0;
 }
 
 /**
@@ -112,7 +104,7 @@ export async function incrementWeeklySpend(
     if (ttlSeconds > 0) {
       await client.expire(key, ttlSeconds);
     }
-    return newValue;
+    return Number(newValue);
   } catch (error) {
     console.error('Error incrementing weekly spend:', error);
     throw error;
@@ -123,16 +115,11 @@ export async function incrementWeeklySpend(
  * Get monthly spending for an agent
  */
 export async function getMonthlySpend(agentId: string, date: Date): Promise<number> {
-  try {
-    const client = await getRedisClient();
-    const monthStart = getMonthStart(date);
-    const key = `spend:monthly:${agentId}:${monthStart.toISOString().slice(0, 7)}`;
-    const value = await client.get(key);
-    return value ? parseFloat(value) : 0;
-  } catch (error) {
-    console.error('Error getting monthly spend:', error);
-    return 0;
-  }
+  const client = await getRedisClient();
+  const monthStart = getMonthStart(date);
+  const key = `spend:monthly:${agentId}:${monthStart.toISOString().slice(0, 7)}`;
+  const value = await client.get(key);
+  return value ? parseFloat(value) : 0;
 }
 
 /**
@@ -157,7 +144,7 @@ export async function incrementMonthlySpend(
     if (ttlSeconds > 0) {
       await client.expire(key, ttlSeconds);
     }
-    return newValue;
+    return Number(newValue);
   } catch (error) {
     console.error('Error incrementing monthly spend:', error);
     throw error;
@@ -196,9 +183,8 @@ export async function clearSpendingCounters(agentId: string): Promise<void> {
   try {
     const client = await getRedisClient();
     const pattern = `spend:*:${agentId}:*`;
-    const keys = await client.keys(pattern);
-    if (keys.length > 0) {
-      await client.del(keys);
+    for await (const keys of client.scanIterator({ MATCH: pattern, COUNT: 100 })) {
+      if (keys.length) await client.del(keys);
     }
   } catch (error) {
     console.error('Error clearing spending counters:', error);

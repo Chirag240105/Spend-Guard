@@ -1,4 +1,5 @@
-import { getPrismaClient } from '../infrastructure/database';
+import { Policy as PrismaPolicy } from '@prisma/client';
+import { getPrismaClient } from '../../infrastructure/database';
 import { CompiledPolicy, Policy } from './policy.types';
 import { validateCompiledPolicy } from './policy.validator';
 
@@ -98,7 +99,17 @@ export class PolicyService {
     return policies.map((p) => this.mapDatabasePolicyToDomain(p));
   }
 
-  private static mapDatabasePolicyToDomain(policy: any): Policy {
+  static async listPolicies(options: { skip?: number; take?: number; active?: boolean } = {}) {
+    const prisma = getPrismaClient();
+    const where = options.active === undefined ? undefined : { active: options.active };
+    const [items, total] = await Promise.all([
+      prisma.policy.findMany({ where, orderBy: { createdAt: 'desc' }, skip: options.skip, take: options.take }),
+      prisma.policy.count({ where }),
+    ]);
+    return { items: items.map((item) => this.mapDatabasePolicyToDomain(item)), total };
+  }
+
+  private static mapDatabasePolicyToDomain(policy: PrismaPolicy): Policy {
     return {
       id: policy.id,
       name: policy.name,

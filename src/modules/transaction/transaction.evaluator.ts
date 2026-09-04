@@ -8,9 +8,7 @@ import {
   incrementDailySpend,
   incrementWeeklySpend,
   incrementMonthlySpend,
-} from '../infrastructure/redis';
-import { CompiledPolicy } from '../policy/policy.types';
-import { DecisionResult } from '../decision/decision.types';
+} from '../../infrastructure/redis';
 
 export interface TransactionEvaluationRequest {
   policyId: string;
@@ -166,11 +164,9 @@ export class TransactionEvaluator {
         request.policyId
       );
 
-      // 6. Update spending counters if ALLOW or HOLD (not BLOCK)
-      if (
-        evaluationResult.decision === 'ALLOW' ||
-        evaluationResult.decision === 'HOLD'
-      ) {
+      // HOLD transactions are not counted until a reviewer approves them. This avoids
+      // reserving spend indefinitely and ensures a rejected HOLD is never counted.
+      if (evaluationResult.decision === 'ALLOW') {
         try {
           await Promise.all([
             incrementDailySpend(request.agentId, request.amount, now),
@@ -234,20 +230,14 @@ export class TransactionEvaluator {
     transactionId: string,
     policyId: string
   ): Promise<void> {
-    const decision = await DecisionService.getDecisionByTransactionId(
-      transactionId
-    );
-    if (!decision) {
-      throw new Error(`No decision found for transaction ${transactionId}`);
-    }
-
-    if (decision.decision !== 'HOLD') {
-      throw new Error(
-        `Can only approve HOLD decisions. Current decision: ${decision.decision}`
-      );
-    }
-
-    // Record override (this would require an UPDATE in the actual implementation)
+    const transaction = await TransactionService.getTransactionById(transactionId);
+    if (!transaction || transaction.policyId !== policyId) throw new Error('Transaction not found for this policy');
+    await DecisionService.resolveDecision(transactionId, 'ALLOW');
+    await Promise.all([
+      incrementDailySpend(transaction.agentId, transaction.amount, transaction.timestamp),
+      incrementWeeklySpend(transaction.agentId, transaction.amount, transaction.timestamp),
+      incrementMonthlySpend(transaction.agentId, transaction.amount, transaction.timestamp),
+    ]);
     await AuditService.logEvent(
       'HUMAN_OVERRIDE',
       'USER',
@@ -267,20 +257,9 @@ export class TransactionEvaluator {
     transactionId: string,
     policyId: string
   ): Promise<void> {
-    const decision = await DecisionService.getDecisionByTransactionId(
-      transactionId
-    );
-    if (!decision) {
-      throw new Error(`No decision found for transaction ${transactionId}`);
-    }
-
-    if (decision.decision !== 'HOLD') {
-      throw new Error(
-        `Can only reject HOLD decisions. Current decision: ${decision.decision}`
-      );
-    }
-
-    // Record override
+    const transaction = await TransactionService.getTransactionById(transactionId);
+    if (!transaction || transaction.policyId !== policyId) throw new Error('Transaction not found for this policy');
+    await DecisionService.resolveDecision(transactionId, 'BLOCK');
     await AuditService.logEvent(
       'HUMAN_OVERRIDE',
       'USER',

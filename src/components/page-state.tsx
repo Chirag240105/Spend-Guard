@@ -1,0 +1,1 @@
+export function PageState({ message, error }: { message: string; error?: boolean }) { return <div className={`rounded-2xl border p-8 text-center ${error ? 'border-rose-800 bg-rose-950/20 text-rose-200' : 'border-slate-800 bg-slate-900 text-slate-300'}`}>{message}</div>; }

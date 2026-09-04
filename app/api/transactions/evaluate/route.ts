@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TransactionEvaluator } from '@/src/modules/transaction/transaction.evaluator';
+import { logRoute, rateLimit, requireApiKey } from '@/src/infrastructure/api';
 
 export async function POST(request: NextRequest) {
   try {
+    const denied = requireApiKey(request); if (denied) return denied;
+    const limited = rateLimit(request, 'evaluate', 60); if (limited) return limited;
     const body = await request.json();
     const {
       policyId,
@@ -42,6 +45,7 @@ export async function POST(request: NextRequest) {
       currency: currency || 'INR',
       metadata: metadata || {},
     });
+    logRoute('transaction_evaluated', { policyId, transactionId: result.transactionId, decision: result.decision });
 
     return NextResponse.json(
       {

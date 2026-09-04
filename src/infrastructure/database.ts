@@ -10,17 +10,7 @@ export function getPrismaClient(): PrismaClient {
     return prisma;
   }
 
-  prisma = new PrismaClient({
-    errorFormat: 'pretty',
-  });
-
-  if (process.env.NODE_ENV === 'development') {
-    prisma.$on('query', (e) => {
-      console.log('Query: ' + e.query);
-      console.log('Params: ' + JSON.stringify(e.params));
-      console.log('Duration: ' + e.duration + 'ms');
-    });
-  }
+  prisma = new PrismaClient({ errorFormat: 'pretty' });
 
   return prisma;
 }

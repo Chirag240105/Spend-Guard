@@ -158,6 +158,21 @@ export function evaluateTransaction(
     if (exceedsThreshold) requiresApproval = true;
   }
 
+  // Rule 10: Check an optional policy time window. Outside the window is held
+  // for review rather than silently authorised; windows that cross midnight work.
+  if (policy.timeWindow) {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: policy.timeWindow.timezone || 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
+    const value = (name: string) => Number(parts.find((part) => part.type === name)?.value ?? '0');
+    const current = value('hour') * 60 + value('minute');
+    const toMinutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute; };
+    const start = toMinutes(policy.timeWindow.start);
+    const end = toMinutes(policy.timeWindow.end);
+    const inside = start <= end ? current >= start && current <= end : current >= start || current <= end;
+    rules.push({ rule: `Time window: ${policy.timeWindow.start}-${policy.timeWindow.end} ${policy.timeWindow.timezone || 'UTC'}`, passed: inside, message: inside ? 'Transaction is within the permitted time window' : 'Transaction is outside the permitted time window' });
+    if (!inside) explanations.push(rules[rules.length - 1].message);
+  }
+
   // Determine final decision
   let decision: DecisionType = 'ALLOW';
 
@@ -189,7 +204,7 @@ export function evaluateTransaction(
     requiresApproval
   ) {
     // Some rule failed or approval required
-    if (rules.some((r) => !r.passed && r.rule.includes('Allowed category'))) {
+    if (rules.some((r) => !r.passed && (r.rule.includes('Allowed category') || r.rule.startsWith('Time window')))) {
       decision = 'HOLD'; // Unknown category
     } else if (requiresApproval) {
       decision = 'HOLD';

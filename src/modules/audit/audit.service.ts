@@ -1,4 +1,5 @@
-import { getPrismaClient } from '../infrastructure/database';
+import { Prisma } from '@prisma/client';
+import { getPrismaClient } from '../../infrastructure/database';
 
 export interface AuditEvent {
   id: string;
@@ -30,7 +31,7 @@ export class AuditService {
       data: {
         event,
         actor,
-        details,
+        details: details as Prisma.InputJsonValue | undefined,
         transactionId,
         policyId,
       },
@@ -88,5 +89,19 @@ export class AuditService {
       details: (l.details as Record<string, unknown>) || undefined,
       createdAt: l.createdAt,
     }));
+  }
+
+  static async listAuditLog(options: { skip?: number; take?: number; policyId?: string; event?: string; from?: Date; to?: Date } = {}) {
+    const prisma = getPrismaClient();
+    const where = {
+      ...(options.policyId ? { policyId: options.policyId } : {}),
+      ...(options.event ? { event: options.event } : {}),
+      ...(options.from || options.to ? { createdAt: { ...(options.from ? { gte: options.from } : {}), ...(options.to ? { lte: options.to } : {}) } } : {}),
+    };
+    const [items, total] = await Promise.all([
+      prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: options.skip, take: options.take, include: { policy: true, transaction: true } }),
+      prisma.auditLog.count({ where }),
+    ]);
+    return { items: items.map((item) => ({ ...item, details: item.details as Record<string, unknown> | undefined })), total };
   }
 }

@@ -1,4 +1,5 @@
-import { getPrismaClient } from '../infrastructure/database';
+import { Decision as PrismaDecision, Prisma } from '@prisma/client';
+import { getPrismaClient } from '../../infrastructure/database';
 import { Decision, DecisionType, DecisionSource } from './decision.types';
 import { RuleEvaluation } from './decision.types';
 
@@ -26,7 +27,7 @@ export class DecisionService {
         policyId,
         decision,
         reason,
-        ruleResults,
+        ruleResults: ruleResults as unknown as Prisma.InputJsonValue,
         source,
         confidence,
       },
@@ -84,14 +85,36 @@ export class DecisionService {
     );
   }
 
-  private static mapDatabaseDecisionToDomain(decision: any): Decision {
+  static async resolveDecision(transactionId: string, outcome: 'ALLOW' | 'BLOCK'): Promise<Decision> {
+    const prisma = getPrismaClient();
+    const existing = await prisma.decision.findUnique({ where: { transactionId } });
+    if (!existing) throw new Error('Decision not found');
+    if (existing.decision !== 'HOLD') throw new Error(`Only HOLD decisions can be resolved. Current decision: ${existing.decision}`);
+    const result = await prisma.decision.update({
+      where: { transactionId },
+      data: { decision: outcome, source: 'HUMAN_OVERRIDE', reason: `Human reviewer ${outcome === 'ALLOW' ? 'approved' : 'rejected'} this transaction.`, },
+    });
+    return this.mapDatabaseDecisionToDomain(result);
+  }
+
+  static async listDecisions(options: { skip?: number; take?: number; decision?: DecisionType } = {}) {
+    const prisma = getPrismaClient();
+    const where = options.decision ? { decision: options.decision } : undefined;
+    const [items, total] = await Promise.all([
+      prisma.decision.findMany({ where, orderBy: { createdAt: 'desc' }, skip: options.skip, take: options.take, include: { transaction: true, policy: true } }),
+      prisma.decision.count({ where }),
+    ]);
+    return { items: items.map((item) => ({ decision: this.mapDatabaseDecisionToDomain(item), transaction: item.transaction, policy: item.policy })), total };
+  }
+
+  private static mapDatabaseDecisionToDomain(decision: PrismaDecision): Decision {
     return {
       id: decision.id,
       transactionId: decision.transactionId,
       policyId: decision.policyId,
       decision: decision.decision as DecisionType,
       reason: decision.reason,
-      ruleResults: decision.ruleResults as RuleEvaluation[],
+      ruleResults: decision.ruleResults as unknown as RuleEvaluation[],
       confidence: decision.confidence || undefined,
       source: decision.source as DecisionSource,
       createdAt: decision.createdAt,

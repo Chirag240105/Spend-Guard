@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DecisionService } from '@/src/modules/decision/decision.service';
 import { AuditService } from '@/src/modules/audit/audit.service';
-import { TransactionService } from '@/src/modules/transaction/transaction.service';
 
 export async function GET(
   _request: NextRequest,

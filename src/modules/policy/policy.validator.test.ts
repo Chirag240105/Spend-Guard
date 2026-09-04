@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateCompiledPolicy, detectPolicyConflicts } from '@/src/modules/policy/policy.validator';
+import { validateCompiledPolicy } from '@/src/modules/policy/policy.validator';
 import { CompiledPolicy } from '@/src/modules/policy/policy.types';
 
 describe('Policy Validator', () => {

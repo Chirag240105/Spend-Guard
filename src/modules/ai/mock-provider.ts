@@ -1,5 +1,5 @@
 // Mock AI provider for development/testing
-import { CompiledPolicy } from '../modules/policy/policy.types';
+import { Categories, CompiledPolicy, Limits, Merchants } from '../policy/policy.types';
 
 /**
  * Mock Claude provider - generates plausible policies from keywords
@@ -35,8 +35,8 @@ function extractPolicyName(text: string): string {
   return 'Agent Spending Policy';
 }
 
-function extractLimits(text: string) {
-  const limits: any = {};
+function extractLimits(text: string): Limits {
+  const limits: Limits = {};
 
   // Extract per-transaction limit
   const txMatch = text.match(/(?:(?:per\s+)?transaction|at\s+once)[:\s]+[₹$]?(\d+(?:,\d+)?)/i);
@@ -65,8 +65,8 @@ function extractLimits(text: string) {
   return limits;
 }
 
-function extractCategories(text: string) {
-  const categories: any = {
+function extractCategories(text: string): Categories {
+  const categories: Categories = {
     allowed: [],
     blocked: [],
   };
@@ -105,7 +105,7 @@ function extractCategories(text: string) {
       'i'
     );
     if (regex.test(text)) {
-      categories.allowed.push(keyword.replace('?', '').replace(/s$/, ''));
+      (categories.allowed ??= []).push(keyword.replace('?', '').replace(/s$/, ''));
     }
   }
 
@@ -116,22 +116,22 @@ function extractCategories(text: string) {
       'i'
     );
     if (regex.test(text)) {
-      categories.blocked.push(keyword.replace('?', ''));
+      (categories.blocked ??= []).push(keyword.replace('?', ''));
     }
   }
 
   return categories;
 }
 
-function extractMerchants(text: string) {
-  const merchants: any = {};
+function extractMerchants(text: string): Merchants | undefined {
+  const merchants: Merchants = {};
 
   // Look for merchant names
   const merchantMatches = text.match(/merchant[s]?\s*[:\s]+([\w\s,]+?)(?:\.|,|$)/i);
   if (merchantMatches) {
     const names = merchantMatches[1]
       .split(',')
-      .map((m) => m.trim())
+      .map(normalizeMerchantName)
       .filter((m) => m.length > 0);
     merchants.allowed = names;
   }
@@ -145,6 +145,7 @@ function extractTimeWindow(text: string) {
     return {
       start: `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`,
       end: `${timeMatch[3].padStart(2, '0')}:${timeMatch[4]}`,
+      timezone: 'UTC',
     };
   }
   return undefined;
@@ -163,5 +164,14 @@ function extractApproval(text: string) {
 }
 
 function parseAmount(amountStr: string): number {
-  return parseInt(amountStr.replace(/,/g, ''), 10);
+  // Accept common INR/USD representations while retaining the number-only policy shape.
+  return parseInt(amountStr.replace(/[^0-9.]/g, ''), 10);
+}
+
+function normalizeMerchantName(value: string): string {
+  return value
+    .replace(/^(at|from|with)\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

@@ -1,4 +1,5 @@
-import { getPrismaClient } from '../infrastructure/database';
+import { Prisma, Transaction as PrismaTransaction } from '@prisma/client';
+import { getPrismaClient } from '../../infrastructure/database';
 import { Transaction, TransactionInput } from './transaction.types';
 
 /**
@@ -21,7 +22,7 @@ export class TransactionService {
         merchant: input.merchant,
         category: input.category,
         agentId: input.agentId,
-        metadata: input.metadata || {},
+        metadata: (input.metadata || {}) as Prisma.InputJsonValue,
         policyId,
       },
     });
@@ -75,7 +76,7 @@ export class TransactionService {
     return transactions.map((t) => this.mapDatabaseTransactionToDomain(t));
   }
 
-  private static mapDatabaseTransactionToDomain(transaction: any): Transaction {
+  private static mapDatabaseTransactionToDomain(transaction: PrismaTransaction): Transaction {
     return {
       id: transaction.id,
       amount: transaction.amount,
@@ -84,7 +85,7 @@ export class TransactionService {
       category: transaction.category,
       timestamp: transaction.timestamp,
       agentId: transaction.agentId,
-      metadata: transaction.metadata || {},
+      metadata: transaction.metadata as Record<string, unknown> | undefined,
       policyId: transaction.policyId,
       createdAt: transaction.createdAt,
     };

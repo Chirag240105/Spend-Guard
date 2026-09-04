@@ -1,8 +1,8 @@
-import { CompiledPolicy, PolicyConflict } from '../policy/policy.types';
+import { CompiledPolicy } from '../policy/policy.types';
 import { validateCompiledPolicy, detectPolicyConflicts } from '../policy/policy.validator';
-import { claudeCompilePolicy } from './claude-provider';
+import { geminiCompilePolicy } from './gemini-provider';
+import { grokCompilePolicy } from './grok-provider';
 import { mockCompilePolicy } from './mock-provider';
-import { z } from 'zod';
 
 export interface PolicyCompilationResult {
   success: boolean;
@@ -15,7 +15,7 @@ export interface PolicyCompilationResult {
 
 /**
  * Compiles a natural language policy into a structured, validated policy
- * Falls back to mock provider if Claude API key is not available
+ * Uses Grok as the primary provider, Gemini as the backup, and mock compilation last.
  */
 export async function compilePolicy(
   naturalLanguage: string
@@ -32,22 +32,41 @@ export async function compilePolicy(
     };
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  const useMock = !apiKey || apiKey === 'test-key-not-set' || apiKey === 'your_anthropic_api_key_here';
+  const grokApiKey = process.env.XAI_API_KEY;
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  let usedMock = false;
 
   try {
-    // Compile using Claude or mock
     let compiledPolicy: CompiledPolicy;
 
-    if (!useMock && apiKey) {
+    if (grokApiKey) {
       try {
-        compiledPolicy = await claudeCompilePolicy(naturalLanguage, apiKey);
+        compiledPolicy = await grokCompilePolicy(naturalLanguage, grokApiKey);
       } catch (error) {
-        // Fall back to mock if Claude fails
-        console.warn('Claude compilation failed, using mock provider:', error);
+        console.warn('Grok compilation failed; trying Gemini:', error);
+        if (geminiApiKey) {
+          try {
+            compiledPolicy = await geminiCompilePolicy(naturalLanguage, geminiApiKey);
+          } catch (geminiError) {
+            console.warn('Gemini compilation failed; using mock provider:', geminiError);
+            usedMock = true;
+            compiledPolicy = await mockCompilePolicy(naturalLanguage);
+          }
+        } else {
+          usedMock = true;
+          compiledPolicy = await mockCompilePolicy(naturalLanguage);
+        }
+      }
+    } else if (geminiApiKey) {
+      try {
+        compiledPolicy = await geminiCompilePolicy(naturalLanguage, geminiApiKey);
+      } catch (error) {
+        console.warn('Gemini compilation failed; using mock provider:', error);
+        usedMock = true;
         compiledPolicy = await mockCompilePolicy(naturalLanguage);
       }
     } else {
+      usedMock = true;
       compiledPolicy = await mockCompilePolicy(naturalLanguage);
     }
 
@@ -60,7 +79,7 @@ export async function compilePolicy(
         error: validation.error,
         conflicts: [],
         warnings: [],
-        usedMock: useMock || !apiKey,
+        usedMock,
       };
     }
 
@@ -75,7 +94,7 @@ export async function compilePolicy(
         error: conflicts.message,
         conflicts: conflicts.conflicts,
         warnings,
-        usedMock: useMock || !apiKey,
+        usedMock,
       };
     }
 
@@ -99,7 +118,7 @@ export async function compilePolicy(
       error: null,
       conflicts: [],
       warnings,
-      usedMock: useMock || !apiKey,
+      usedMock,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -109,7 +128,7 @@ export async function compilePolicy(
       error: `Failed to compile policy: ${message}`,
       conflicts: [],
       warnings: [],
-      usedMock: useMock || !apiKey,
+      usedMock,
     };
   }
 }

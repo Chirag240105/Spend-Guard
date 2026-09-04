@@ -1,12 +1,8 @@
-/**
- * Demo seed script - Creates sample policies and transactions
- * Run this after database is initialized
- */
 
-import { PolicyService } from './src/modules/policy/policy.service';
-import { TransactionEvaluator } from './src/modules/transaction/transaction.evaluator';
-import { getPrismaClient } from './src/infrastructure/database';
-import { closeRedis } from './src/infrastructure/redis';
+import { PolicyService } from '../src/modules/policy/policy.service';
+import { TransactionEvaluator } from '../src/modules/transaction/transaction.evaluator';
+import { getPrismaClient } from '../src/infrastructure/database';
+import { closeRedis } from '../src/infrastructure/redis';
 
 const DEMO_POLICY_NL = `My agent can spend up to ₹2,000 per day on groceries and school supplies.
 Never spend more than ₹500 at once.
