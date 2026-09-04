@@ -3,13 +3,21 @@ import { TransactionEvaluator } from '@/src/modules/transaction/transaction.eval
 import { TransactionService } from '@/src/modules/transaction/transaction.service';
 import { logRoute, requireApiKey } from '@/src/infrastructure/api';
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ transactionId: string }> }) {
-  const denied = requireApiKey(request); if (denied) return denied;
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ transactionId: string }> },
+) {
+  const denied = requireApiKey(request);
+  if (denied) return denied;
   try {
-    const { transactionId } = await params; const transaction = await TransactionService.getTransactionById(transactionId);
+    const { transactionId } = await params;
+    const transaction = await TransactionService.getTransactionById(transactionId);
     if (!transaction) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     await TransactionEvaluator.approveTransaction(transactionId, transaction.policyId);
     logRoute('transaction_approved', { transactionId });
     return NextResponse.json({ success: true, decision: 'ALLOW' });
-  } catch (error) { const message = error instanceof Error ? error.message : 'Failed to approve transaction'; return NextResponse.json({ error: message }, { status: 400 }); }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to approve transaction';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

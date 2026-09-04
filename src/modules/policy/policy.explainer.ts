@@ -24,9 +24,7 @@ export function explainPolicy(policy: CompiledPolicy): PolicyExplanation {
 
   // Explain limits
   if (policy.limits.perTransaction) {
-    explanation.limits.push(
-      `Per Transaction: ₹${policy.limits.perTransaction}`
-    );
+    explanation.limits.push(`Per Transaction: ₹${policy.limits.perTransaction}`);
   }
   if (policy.limits.daily) {
     explanation.limits.push(`Daily: ₹${policy.limits.daily}`);
@@ -39,23 +37,13 @@ export function explainPolicy(policy: CompiledPolicy): PolicyExplanation {
   }
 
   // Explain allowed categories
-  if (
-    policy.categories.allowed &&
-    policy.categories.allowed.length > 0
-  ) {
-    explanation.allowed = policy.categories.allowed.map((c) =>
-      c.replace(/_/g, ' ')
-    );
+  if (policy.categories.allowed && policy.categories.allowed.length > 0) {
+    explanation.allowed = policy.categories.allowed.map((c) => c.replace(/_/g, ' '));
   }
 
   // Explain blocked categories
-  if (
-    policy.categories.blocked &&
-    policy.categories.blocked.length > 0
-  ) {
-    explanation.blocked = policy.categories.blocked.map((c) =>
-      c.replace(/_/g, ' ')
-    );
+  if (policy.categories.blocked && policy.categories.blocked.length > 0) {
+    explanation.blocked = policy.categories.blocked.map((c) => c.replace(/_/g, ' '));
   }
 
   // Explain merchant restrictions

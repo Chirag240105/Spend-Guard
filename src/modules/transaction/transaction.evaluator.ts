@@ -54,7 +54,7 @@ export class TransactionEvaluator {
    * Evaluate a transaction against a policy
    */
   static async evaluateTransaction(
-    request: TransactionEvaluationRequest
+    request: TransactionEvaluationRequest,
   ): Promise<TransactionEvaluationResponse> {
     const now = new Date();
 
@@ -66,17 +66,14 @@ export class TransactionEvaluator {
       }
 
       // 2. Create transaction record
-      const transaction = await TransactionService.createTransaction(
-        request.policyId,
-        {
-          amount: request.amount,
-          merchant: request.merchant,
-          category: request.category,
-          agentId: request.agentId,
-          currency: request.currency || 'INR',
-          metadata: request.metadata,
-        }
-      );
+      const transaction = await TransactionService.createTransaction(request.policyId, {
+        amount: request.amount,
+        merchant: request.merchant,
+        category: request.category,
+        agentId: request.agentId,
+        currency: request.currency || 'INR',
+        metadata: request.metadata,
+      });
 
       // Log transaction received
       await AuditService.logEvent(
@@ -88,7 +85,7 @@ export class TransactionEvaluator {
           category: request.category,
         },
         transaction.id,
-        request.policyId
+        request.policyId,
       );
 
       // 3. Get spending context
@@ -102,7 +99,7 @@ export class TransactionEvaluator {
           'SYSTEM',
           { error: String(error) },
           transaction.id,
-          request.policyId
+          request.policyId,
         );
 
         const decision = await DecisionService.recordDecision(
@@ -117,7 +114,7 @@ export class TransactionEvaluator {
               message: 'Could not retrieve spending context from Redis',
             },
           ],
-          'DETERMINISTIC'
+          'DETERMINISTIC',
         );
 
         return {
@@ -140,7 +137,7 @@ export class TransactionEvaluator {
       const evaluationResult = evaluateTransaction(
         transaction,
         policy.compiledPolicy,
-        spendingContext
+        spendingContext,
       );
 
       // 5. Record decision
@@ -151,25 +148,24 @@ export class TransactionEvaluator {
         evaluationResult.explanation,
         evaluationResult.reasons,
         evaluationResult.source,
-        evaluationResult.confidence
+        evaluationResult.confidence,
       );
-      
 
-if (evaluationResult.decision === 'BLOCK') {
-  await OutboxService.enqueue({
-    eventType: 'payment.failed',
-    aggregateId: transaction.id,
-    payload: {
-      transactionId: transaction.id,
-      policyId: request.policyId,
-      amount: request.amount,
-      merchant: request.merchant,
-      reason: evaluationResult.explanation,
-      decisionSource: evaluationResult.source,
-      timestamp: new Date().toISOString(),
-    },
-  });
-}
+      if (evaluationResult.decision === 'BLOCK') {
+        await OutboxService.enqueue({
+          eventType: 'payment.failed',
+          aggregateId: transaction.id,
+          payload: {
+            transactionId: transaction.id,
+            policyId: request.policyId,
+            amount: request.amount,
+            merchant: request.merchant,
+            reason: evaluationResult.explanation,
+            decisionSource: evaluationResult.source,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
       // Log decision
       await AuditService.logEvent(
         'DECISION_MADE',
@@ -179,7 +175,7 @@ if (evaluationResult.decision === 'BLOCK') {
           source: evaluationResult.source,
         },
         transaction.id,
-        request.policyId
+        request.policyId,
       );
 
       // HOLD transactions are not counted until a reviewer approves them. This avoids
@@ -244,12 +240,10 @@ if (evaluationResult.decision === 'BLOCK') {
   /**
    * Approve a HOLD transaction (human override)
    */
-  static async approveTransaction(
-    transactionId: string,
-    policyId: string
-  ): Promise<void> {
+  static async approveTransaction(transactionId: string, policyId: string): Promise<void> {
     const transaction = await TransactionService.getTransactionById(transactionId);
-    if (!transaction || transaction.policyId !== policyId) throw new Error('Transaction not found for this policy');
+    if (!transaction || transaction.policyId !== policyId)
+      throw new Error('Transaction not found for this policy');
     await DecisionService.resolveDecision(transactionId, 'ALLOW');
     await Promise.all([
       incrementDailySpend(transaction.agentId, transaction.amount, transaction.timestamp),
@@ -264,19 +258,17 @@ if (evaluationResult.decision === 'BLOCK') {
         newDecision: 'ALLOW',
       },
       transactionId,
-      policyId
+      policyId,
     );
   }
 
   /**
    * Block a HOLD transaction
    */
-  static async rejectTransaction(
-    transactionId: string,
-    policyId: string
-  ): Promise<void> {
+  static async rejectTransaction(transactionId: string, policyId: string): Promise<void> {
     const transaction = await TransactionService.getTransactionById(transactionId);
-    if (!transaction || transaction.policyId !== policyId) throw new Error('Transaction not found for this policy');
+    if (!transaction || transaction.policyId !== policyId)
+      throw new Error('Transaction not found for this policy');
     await DecisionService.resolveDecision(transactionId, 'BLOCK');
     await AuditService.logEvent(
       'HUMAN_OVERRIDE',
@@ -286,7 +278,7 @@ if (evaluationResult.decision === 'BLOCK') {
         newDecision: 'BLOCK',
       },
       transactionId,
-      policyId
+      policyId,
     );
   }
 }

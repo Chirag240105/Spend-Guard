@@ -23,7 +23,7 @@ export class AuditService {
     actor: string,
     details?: Record<string, unknown>,
     transactionId?: string,
-    policyId?: string
+    policyId?: string,
   ): Promise<AuditEvent> {
     const prisma = getPrismaClient();
 
@@ -91,17 +91,45 @@ export class AuditService {
     }));
   }
 
-  static async listAuditLog(options: { skip?: number; take?: number; policyId?: string; event?: string; from?: Date; to?: Date } = {}) {
+  static async listAuditLog(
+    options: {
+      skip?: number;
+      take?: number;
+      policyId?: string;
+      event?: string;
+      from?: Date;
+      to?: Date;
+    } = {},
+  ) {
     const prisma = getPrismaClient();
     const where = {
       ...(options.policyId ? { policyId: options.policyId } : {}),
       ...(options.event ? { event: options.event } : {}),
-      ...(options.from || options.to ? { createdAt: { ...(options.from ? { gte: options.from } : {}), ...(options.to ? { lte: options.to } : {}) } } : {}),
+      ...(options.from || options.to
+        ? {
+            createdAt: {
+              ...(options.from ? { gte: options.from } : {}),
+              ...(options.to ? { lte: options.to } : {}),
+            },
+          }
+        : {}),
     };
     const [items, total] = await Promise.all([
-      prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: options.skip, take: options.take, include: { policy: true, transaction: true } }),
+      prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: options.skip,
+        take: options.take,
+        include: { policy: true, transaction: true },
+      }),
       prisma.auditLog.count({ where }),
     ]);
-    return { items: items.map((item) => ({ ...item, details: item.details as Record<string, unknown> | undefined })), total };
+    return {
+      items: items.map((item) => ({
+        ...item,
+        details: item.details as Record<string, unknown> | undefined,
+      })),
+      total,
+    };
   }
 }

@@ -57,7 +57,13 @@ export async function POST(req: NextRequest) {
         update: {},
       });
       const { postBalancedLedger } = await import('@/src/modules/ledger/ledger.service');
-      await postBalancedLedger(tx, payment.id, order.amount, clearingAccount.id, merchantAccount.id);
+      await postBalancedLedger(
+        tx,
+        payment.id,
+        order.amount,
+        clearingAccount.id,
+        merchantAccount.id,
+      );
       await tx.payment.update({ where: { id: payment.id }, data: { status: 'SUCCESS' } });
       await tx.outboxEvent.create({
         data: {

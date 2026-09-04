@@ -5,12 +5,14 @@
 ### Core Implementation (4,000+ lines of TypeScript)
 
 #### 1. **AI Module** (`src/modules/ai/`)
+
 - `claude-provider.ts` - Real Claude API integration
 - `mock-provider.ts` - Fallback mock with NLP-like keyword extraction
 - `compiler.ts` - Orchestration layer with validation
 - Unit tests for all providers
 
 #### 2. **Policy Module** (`src/modules/policy/`)
+
 - `policy.types.ts` - Zod schemas for structured policies
 - `policy.validator.ts` - Conflict detection & validation
 - `policy.explainer.ts` - Human-readable policy display
@@ -18,12 +20,14 @@
 - `policy.compiler.ts` - Interface definition
 
 #### 3. **Transaction Module** (`src/modules/transaction/`)
+
 - `transaction.types.ts` - Transaction domain models
 - `transaction.service.ts` - Database persistence
 - `transaction.evaluator.ts` - Complete evaluation pipeline
 - Transaction history & querying
 
 #### 4. **Decision Module** (`src/modules/decision/`)
+
 - `decision.types.ts` - Decision domain models
 - `evaluator.ts` - **Core deterministic engine** (400+ lines)
   - Per-transaction limits
@@ -35,11 +39,13 @@
 - `decision.service.ts` - Decision persistence & statistics
 
 #### 5. **Audit Module** (`src/modules/audit/`)
+
 - `audit.service.ts` - Complete audit trail logging
 - Event tracking: POLICY_CREATED, TRANSACTION_RECEIVED, DECISION_MADE, HUMAN_OVERRIDE
 - Rich metadata capture
 
 #### 6. **Infrastructure** (`src/infrastructure/`)
+
 - `database.ts` - Prisma client singleton
 - `redis.ts` - Redis abstraction with spending counter logic
   - Atomic daily/weekly/monthly tracking
@@ -48,26 +54,28 @@
 
 ### API Endpoints (8 total)
 
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| `POST` | `/api/policies/compile` | Compile natural language to policy |
-| `GET` | `/api/policies` | List all active policies |
-| `GET` | `/api/policies/{policyId}` | Get specific policy |
-| `POST` | `/api/transactions/evaluate` | Evaluate a transaction |
-| `GET` | `/api/policies/{policyId}/transactions` | List policy transactions |
-| `GET` | `/api/transactions/{transactionId}` | Get transaction details |
-| `GET` | `/api/policies/{policyId}/audit` | Get audit log |
-| `GET` | `/api/health` | Health check |
+| Method | Endpoint                                | Purpose                            |
+| ------ | --------------------------------------- | ---------------------------------- |
+| `POST` | `/api/policies/compile`                 | Compile natural language to policy |
+| `GET`  | `/api/policies`                         | List all active policies           |
+| `GET`  | `/api/policies/{policyId}`              | Get specific policy                |
+| `POST` | `/api/transactions/evaluate`            | Evaluate a transaction             |
+| `GET`  | `/api/policies/{policyId}/transactions` | List policy transactions           |
+| `GET`  | `/api/transactions/{transactionId}`     | Get transaction details            |
+| `GET`  | `/api/policies/{policyId}/audit`        | Get audit log                      |
+| `GET`  | `/api/health`                           | Health check                       |
 
 ### Database Schema (Prisma)
 
 **4 main tables:**
+
 - `Policy` - Policies with version tracking
 - `Transaction` - Transaction records with metadata
 - `Decision` - Decision results with rule evaluation details
 - `AuditLog` - Complete audit trail
 
 **3 indexes** for query performance:
+
 - Transaction.agentId
 - Transaction.policyId
 - Decision.policyId
@@ -156,6 +164,7 @@ Response to Client ✅
 ## 🔑 Key Features
 
 ### ✅ Policy Compilation
+
 - Claude API integration with structured prompting
 - Mock fallback for testing/demo without API keys
 - Comprehensive constraint extraction (limits, categories, merchants, time, approval)
@@ -164,6 +173,7 @@ Response to Client ✅
 - Warning system for incomplete policies
 
 ### ✅ Transaction Evaluation
+
 - **9 distinct rule categories** evaluated in deterministic order
 - Per-transaction limit enforcement (hard block)
 - Daily/weekly/monthly spending tracking via Redis
@@ -175,11 +185,13 @@ Response to Client ✅
 - Detailed rule-by-rule explanations
 
 ### ✅ Decision Types
+
 - **ALLOW**: All rules pass, within all limits
 - **HOLD**: Requires human review (approval threshold, ambiguous category, Redis unavailable)
 - **BLOCK**: Hard rules violated (blocked category, blocked merchant, limit exceeded)
 
 ### ✅ Resilience
+
 - Redis unavailability → HOLD (fail safely)
 - Claude API unavailability → Mock provider (graceful degradation)
 - Invalid AI output → Validation error (safe rejection)
@@ -187,6 +199,7 @@ Response to Client ✅
 - Comprehensive error handling throughout
 
 ### ✅ Production Readiness
+
 - TypeScript strict mode
 - Zod runtime validation
 - Prisma migrations
@@ -200,14 +213,14 @@ Response to Client ✅
 
 ## 📈 Metrics
 
-| Metric | Value |
-|--------|-------|
-| Lines of Code | 4000+ |
-| TypeScript Files | 25+ |
-| API Endpoints | 8 |
-| Database Tables | 4 |
-| Test Cases | 19 |
-| Decision Rules | 9 |
+| Metric             | Value                              |
+| ------------------ | ---------------------------------- |
+| Lines of Code      | 4000+                              |
+| TypeScript Files   | 25+                                |
+| API Endpoints      | 8                                  |
+| Database Tables    | 4                                  |
+| Test Cases         | 19                                 |
+| Decision Rules     | 9                                  |
 | Integration Points | 4 (PostgreSQL, Redis, Claude, Zod) |
 
 ---
@@ -215,6 +228,7 @@ Response to Client ✅
 ## 🚀 Ready for Production
 
 Phase 5 is **complete and production-ready** for:
+
 - ✅ Policy compilation from natural language
 - ✅ Transaction authorization
 - ✅ Audit trail tracking
@@ -226,12 +240,14 @@ Phase 5 is **complete and production-ready** for:
 ## 📝 How to Run
 
 ### 1. Setup Infrastructure
+
 ```bash
 docker compose up -d
 npx prisma migrate deploy
 ```
 
 ### 2. Compile a Policy
+
 ```bash
 curl -X POST http://localhost:3000/api/policies/compile \
   -H "Content-Type: application/json" \
@@ -241,6 +257,7 @@ curl -X POST http://localhost:3000/api/policies/compile \
 ```
 
 ### 3. Evaluate Transactions
+
 ```bash
 curl -X POST http://localhost:3000/api/transactions/evaluate \
   -H "Content-Type: application/json" \
@@ -254,11 +271,13 @@ curl -X POST http://localhost:3000/api/transactions/evaluate \
 ```
 
 ### 4. Run Tests
+
 ```bash
 npm test
 ```
 
 ### 5. Seed Demo Data
+
 ```bash
 npx ts-node scripts/seed-demo.ts
 ```
@@ -268,6 +287,7 @@ npx ts-node scripts/seed-demo.ts
 ## 📚 Files Created in Phase 5
 
 ### Core Modules (15 files)
+
 - `src/modules/ai/claude-provider.ts`
 - `src/modules/ai/mock-provider.ts`
 - `src/modules/ai/compiler.ts`
@@ -285,10 +305,12 @@ npx ts-node scripts/seed-demo.ts
 - `src/modules/audit/audit.service.ts`
 
 ### Infrastructure (3 files)
+
 - `src/infrastructure/database.ts`
 - `src/infrastructure/redis.ts`
 
 ### API Endpoints (8 files)
+
 - `app/api/policies/compile/route.ts`
 - `app/api/policies/route.ts`
 - `app/api/policies/[policyId]/route.ts`
@@ -299,11 +321,13 @@ npx ts-node scripts/seed-demo.ts
 - `app/api/health/route.ts`
 
 ### Tests (3 files)
+
 - `src/modules/decision/evaluator.test.ts`
 - `src/modules/policy/policy.validator.test.ts`
 - `src/modules/ai/mock-provider.test.ts`
 
 ### Configuration (7 files)
+
 - `prisma/schema.prisma`
 - `prisma/migrations/0_init/migration.sql`
 - `vitest.config.ts`
@@ -313,14 +337,17 @@ npx ts-node scripts/seed-demo.ts
 - `.gitignore`
 
 ### Documentation (3 files)
+
 - `README.md` (updated)
 - `IMPLEMENTATION.md` (Phase 5 details)
 
 ### Scripts (2 files)
+
 - `scripts/seed-demo.ts`
 - `scripts/setup.sh`
 
 ### Configuration (1 file)
+
 - `package.json` (updated with new scripts & dependencies)
 
 **Total: 42 files created/modified in Phase 5**
@@ -361,6 +388,7 @@ npx ts-node scripts/seed-demo.ts
 ## 🎯 Next Phase: Dashboard (Phase 6)
 
 Phase 5 provides all backend functionality. Phase 6 will add:
+
 - React components for policy composer
 - Transaction feed UI
 - Decision details views
@@ -375,6 +403,7 @@ Phase 5 provides all backend functionality. Phase 6 will add:
 ## 📞 Support
 
 Comprehensive documentation available:
+
 - API endpoints: `README.md`
 - Technical details: `IMPLEMENTATION.md`
 - Running code: See scripts/ directory

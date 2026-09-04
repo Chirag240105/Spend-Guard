@@ -20,7 +20,7 @@ export interface SpendingContext {
 export function evaluateTransaction(
   transaction: Transaction,
   policy: CompiledPolicy,
-  spendingContext: SpendingContext
+  spendingContext: SpendingContext,
 ): DecisionResult {
   const rules: RuleEvaluation[] = [];
   const explanations: string[] = [];
@@ -87,7 +87,7 @@ export function evaluateTransaction(
   // Rule 5: Check blocked categories - HARD BLOCK
   if (policy.categories.blocked && policy.categories.blocked.length > 0) {
     const isBlocked = policy.categories.blocked.some(
-      (c) => c.toLowerCase().replace(/\s+/g, '_') === txCategory
+      (c) => c.toLowerCase().replace(/\s+/g, '_') === txCategory,
     );
     rules.push({
       rule: 'Blocked category check',
@@ -102,7 +102,7 @@ export function evaluateTransaction(
   // Rule 6: Check allowed categories - if allowlist exists, enforce it
   if (policy.categories.allowed && policy.categories.allowed.length > 0) {
     const isAllowed = policy.categories.allowed.some(
-      (c) => c.toLowerCase().replace(/\s+/g, '_') === txCategory
+      (c) => c.toLowerCase().replace(/\s+/g, '_') === txCategory,
     );
     rules.push({
       rule: 'Allowed category check',
@@ -116,9 +116,7 @@ export function evaluateTransaction(
 
   // Rule 7: Check blocked merchants
   if (policy.merchants?.blocked && policy.merchants.blocked.length > 0) {
-    const isMerchantBlocked = policy.merchants.blocked.some(
-      (m) => m.toLowerCase() === txMerchant
-    );
+    const isMerchantBlocked = policy.merchants.blocked.some((m) => m.toLowerCase() === txMerchant);
     rules.push({
       rule: 'Blocked merchant check',
       passed: !isMerchantBlocked,
@@ -131,9 +129,7 @@ export function evaluateTransaction(
 
   // Rule 8: Check allowed merchants - if allowlist exists, enforce it
   if (policy.merchants?.allowed && policy.merchants.allowed.length > 0) {
-    const isMerchantAllowed = policy.merchants.allowed.some(
-      (m) => m.toLowerCase() === txMerchant
-    );
+    const isMerchantAllowed = policy.merchants.allowed.some((m) => m.toLowerCase() === txMerchant);
     rules.push({
       rule: 'Allowed merchant check',
       passed: isMerchantAllowed,
@@ -162,14 +158,29 @@ export function evaluateTransaction(
   // for review rather than silently authorised; windows that cross midnight work.
   if (policy.timeWindow) {
     const now = new Date();
-    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: policy.timeWindow.timezone || 'UTC', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: policy.timeWindow.timezone || 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now);
     const value = (name: string) => Number(parts.find((part) => part.type === name)?.value ?? '0');
     const current = value('hour') * 60 + value('minute');
-    const toMinutes = (time: string) => { const [hour, minute] = time.split(':').map(Number); return hour * 60 + minute; };
+    const toMinutes = (time: string) => {
+      const [hour, minute] = time.split(':').map(Number);
+      return hour * 60 + minute;
+    };
     const start = toMinutes(policy.timeWindow.start);
     const end = toMinutes(policy.timeWindow.end);
-    const inside = start <= end ? current >= start && current <= end : current >= start || current <= end;
-    rules.push({ rule: `Time window: ${policy.timeWindow.start}-${policy.timeWindow.end} ${policy.timeWindow.timezone || 'UTC'}`, passed: inside, message: inside ? 'Transaction is within the permitted time window' : 'Transaction is outside the permitted time window' });
+    const inside =
+      start <= end ? current >= start && current <= end : current >= start || current <= end;
+    rules.push({
+      rule: `Time window: ${policy.timeWindow.start}-${policy.timeWindow.end} ${policy.timeWindow.timezone || 'UTC'}`,
+      passed: inside,
+      message: inside
+        ? 'Transaction is within the permitted time window'
+        : 'Transaction is outside the permitted time window',
+    });
     if (!inside) explanations.push(rules[rules.length - 1].message);
   }
 
@@ -180,29 +191,21 @@ export function evaluateTransaction(
   // ALLOW  — all checks pass
   let decision: DecisionType = 'ALLOW';
 
-  const hasBlockedCategory = rules.some(
-    (r) => !r.passed && r.rule === 'Blocked category check'
-  );
-  const hasBlockedMerchant = rules.some(
-    (r) => !r.passed && r.rule === 'Blocked merchant check'
-  );
+  const hasBlockedCategory = rules.some((r) => !r.passed && r.rule === 'Blocked category check');
+  const hasBlockedMerchant = rules.some((r) => !r.passed && r.rule === 'Blocked merchant check');
   const hasPeriodLimitFailure = rules.some(
     (r) =>
       !r.passed &&
       (r.rule.startsWith('Daily limit') ||
         r.rule.startsWith('Weekly limit') ||
-        r.rule.startsWith('Monthly limit'))
+        r.rule.startsWith('Monthly limit')),
   );
   // Per-transaction over-limit → HOLD if approval threshold is configured, else BLOCK
   const hasPerTxLimitFailure = rules.some(
-    (r) => !r.passed && r.rule.startsWith('Per-transaction limit')
+    (r) => !r.passed && r.rule.startsWith('Per-transaction limit'),
   );
-  const hasUnknownCategory = rules.some(
-    (r) => !r.passed && r.rule === 'Allowed category check'
-  );
-  const hasTimeWindowFailure = rules.some(
-    (r) => !r.passed && r.rule.startsWith('Time window')
-  );
+  const hasUnknownCategory = rules.some((r) => !r.passed && r.rule === 'Allowed category check');
+  const hasTimeWindowFailure = rules.some((r) => !r.passed && r.rule.startsWith('Time window'));
 
   if (hasBlockedCategory || hasBlockedMerchant || hasPeriodLimitFailure) {
     decision = 'BLOCK';
@@ -219,12 +222,13 @@ export function evaluateTransaction(
     decision,
     reasons: rules,
     source: 'DETERMINISTIC',
-    explanation: explanations.length > 0 
-      ? explanations.join('. ')
-      : decision === 'ALLOW'
-        ? 'Transaction approved by policy rules'
-        : decision === 'HOLD'
-          ? 'Transaction requires human review'
-          : 'Transaction blocked by policy',
+    explanation:
+      explanations.length > 0
+        ? explanations.join('. ')
+        : decision === 'ALLOW'
+          ? 'Transaction approved by policy rules'
+          : decision === 'HOLD'
+            ? 'Transaction requires human review'
+            : 'Transaction blocked by policy',
   };
 }

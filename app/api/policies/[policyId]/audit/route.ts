@@ -3,7 +3,7 @@ import { AuditService } from '@/src/modules/audit/audit.service';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ policyId: string }> }
+  { params }: { params: Promise<{ policyId: string }> },
 ) {
   try {
     const { policyId } = await params;
@@ -15,9 +15,6 @@ export async function GET(
     });
   } catch (error) {
     console.error('Error fetching audit logs:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch audit logs' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch audit logs' }, { status: 500 });
   }
 }

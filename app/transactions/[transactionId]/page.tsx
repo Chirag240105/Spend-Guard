@@ -1,3 +1,68 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, react-hooks/exhaustive-deps */
-'use client'; import { useParams, useRouter } from 'next/navigation'; import { useEffect,useState } from 'react'; import { DecisionBadge } from '@/src/components/decision-badge'; import { PageState } from '@/src/components/page-state';
-export default function TransactionDetail(){const {transactionId}=useParams<{transactionId:string}>();const router=useRouter();const [data,setData]=useState<any>();const [error,setError]=useState('');const load=()=>fetch(`/api/transactions/${transactionId}`).then(async r=>r.ok?setData(await r.json()):setError('Transaction not found.')).catch(()=>setError('Unable to load transaction.'));useEffect(()=>{void load();},[transactionId]);async function resolve(action:string){const r=await fetch(`/api/transactions/${transactionId}/${action}`,{method:'POST'});if(!r.ok)return setError((await r.json()).error);void load();}if(error)return <PageState error message={error}/>;if(!data)return <PageState message="Loading decision…"/>;const {transaction,decision}=data;return <div className="max-w-3xl"><p className="text-sm font-bold uppercase tracking-[.2em] text-cyan-400">Transaction</p><div className="mt-2 flex items-center gap-3"><h1 className="text-4xl font-bold">{transaction.merchant}</h1><DecisionBadge decision={decision.decision}/></div><p className="mt-3 text-slate-400">₹{transaction.amount} · {transaction.category} · {new Date(transaction.createdAt).toLocaleString()}</p>{decision.decision==='HOLD'&&<div className="mt-6 flex gap-3"><button onClick={()=>resolve('approve')} className="rounded-lg bg-cyan-400 px-4 py-2 font-bold text-slate-950">Approve</button><button onClick={()=>resolve('reject')} className="rounded-lg border border-rose-400/50 px-4 py-2 text-rose-200">Reject</button></div>}<section className="mt-7 rounded-2xl border border-slate-800 bg-slate-900 p-6"><h2 className="text-xl font-bold">Decision breakdown</h2><p className="mt-3 text-slate-300">{decision.reason}</p><div className="mt-5 space-y-3">{decision.ruleResults.map((r:any)=><div key={r.rule} className="rounded-xl bg-slate-800/70 p-4"><p className="font-semibold">{r.rule}</p><p className={r.passed?'text-emerald-300':'text-amber-300'}>{r.message}</p></div>)}</div></section></div>;}
+'use client';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { DecisionBadge } from '@/src/components/decision-badge';
+import { PageState } from '@/src/components/page-state';
+export default function TransactionDetail() {
+  const { transactionId } = useParams<{ transactionId: string }>();
+  const router = useRouter();
+  const [data, setData] = useState<any>();
+  const [error, setError] = useState('');
+  const load = () =>
+    fetch(`/api/transactions/${transactionId}`)
+      .then(async (r) => (r.ok ? setData(await r.json()) : setError('Transaction not found.')))
+      .catch(() => setError('Unable to load transaction.'));
+  useEffect(() => {
+    void load();
+  }, [transactionId]);
+  async function resolve(action: string) {
+    const r = await fetch(`/api/transactions/${transactionId}/${action}`, { method: 'POST' });
+    if (!r.ok) return setError((await r.json()).error);
+    void load();
+  }
+  if (error) return <PageState error message={error} />;
+  if (!data) return <PageState message="Loading decision…" />;
+  const { transaction, decision } = data;
+  return (
+    <div className="max-w-3xl">
+      <p className="text-sm font-bold uppercase tracking-[.2em] text-cyan-400">Transaction</p>
+      <div className="mt-2 flex items-center gap-3">
+        <h1 className="text-4xl font-bold">{transaction.merchant}</h1>
+        <DecisionBadge decision={decision.decision} />
+      </div>
+      <p className="mt-3 text-slate-400">
+        ₹{transaction.amount} · {transaction.category} ·{' '}
+        {new Date(transaction.createdAt).toLocaleString()}
+      </p>
+      {decision.decision === 'HOLD' && (
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={() => resolve('approve')}
+            className="rounded-lg bg-cyan-400 px-4 py-2 font-bold text-slate-950"
+          >
+            Approve
+          </button>
+          <button
+            onClick={() => resolve('reject')}
+            className="rounded-lg border border-rose-400/50 px-4 py-2 text-rose-200"
+          >
+            Reject
+          </button>
+        </div>
+      )}
+      <section className="mt-7 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <h2 className="text-xl font-bold">Decision breakdown</h2>
+        <p className="mt-3 text-slate-300">{decision.reason}</p>
+        <div className="mt-5 space-y-3">
+          {decision.ruleResults.map((r: any) => (
+            <div key={r.rule} className="rounded-xl bg-slate-800/70 p-4">
+              <p className="font-semibold">{r.rule}</p>
+              <p className={r.passed ? 'text-emerald-300' : 'text-amber-300'}>{r.message}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

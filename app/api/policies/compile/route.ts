@@ -6,15 +6,17 @@ import { logRoute, rateLimit, requireApiKey } from '@/src/infrastructure/api';
 
 export async function POST(request: NextRequest) {
   try {
-    const denied = requireApiKey(request); if (denied) return denied;
-    const limited = rateLimit(request, 'compile', 10); if (limited) return limited;
+    const denied = requireApiKey(request);
+    if (denied) return denied;
+    const limited = rateLimit(request, 'compile', 10);
+    if (limited) return limited;
     const body = await request.json();
     const { naturalLanguage } = body;
 
     if (!naturalLanguage || typeof naturalLanguage !== 'string') {
       return NextResponse.json(
         { error: 'naturalLanguage is required and must be a string' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
           conflicts: compilationResult.conflicts,
           usedMock: compilationResult.usedMock,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
     const policy = await PolicyService.createPolicy(
       `Policy from AI Compiler - ${new Date().toISOString()}`,
       naturalLanguage,
-      compilationResult.policy!
+      compilationResult.policy!,
     );
 
     // Log policy creation
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
         usedMock: compilationResult.usedMock,
       },
       undefined,
-      policy.id
+      policy.id,
     );
     logRoute('policy_compiled', { policyId: policy.id, usedMock: compilationResult.usedMock });
 
@@ -67,13 +69,10 @@ export async function POST(request: NextRequest) {
         warnings: compilationResult.warnings,
         usedMock: compilationResult.usedMock,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error('Policy compilation error:', error);
-    return NextResponse.json(
-      { error: 'Failed to compile policy' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to compile policy' }, { status: 500 });
   }
 }

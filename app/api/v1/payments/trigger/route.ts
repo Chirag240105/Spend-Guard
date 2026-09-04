@@ -14,7 +14,17 @@ const schema = z.object({
   merchantId: z.string().default('demo-merchant'),
   amount: z.number().positive().default(1000),
   currency: z.string().default('INR'),
-  scenario: z.enum(['TRANSIENT_NETWORK', 'GATEWAY_TIMEOUT', 'BANK_TEMPORARY_FAILURE', 'INSUFFICIENT_FUNDS', 'CARD_DECLINED', 'UNKNOWN', 'SUCCESS']).default('GATEWAY_TIMEOUT'),
+  scenario: z
+    .enum([
+      'TRANSIENT_NETWORK',
+      'GATEWAY_TIMEOUT',
+      'BANK_TEMPORARY_FAILURE',
+      'INSUFFICIENT_FUNDS',
+      'CARD_DECLINED',
+      'UNKNOWN',
+      'SUCCESS',
+    ])
+    .default('GATEWAY_TIMEOUT'),
 });
 
 export async function POST(req: NextRequest) {

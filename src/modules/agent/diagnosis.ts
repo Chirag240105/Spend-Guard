@@ -33,11 +33,19 @@ export function humanReviewDiagnosis(reason: string): AgentDiagnosis {
 }
 
 export interface AIProvider {
-  diagnose(context: { gatewayErrorCode?: string; paymentId?: string; retryCount?: number }): Promise<AgentDiagnosis>;
+  diagnose(context: {
+    gatewayErrorCode?: string;
+    paymentId?: string;
+    retryCount?: number;
+  }): Promise<AgentDiagnosis>;
 }
 
 export class MockDiagnosisProvider implements AIProvider {
-  async diagnose(context: { gatewayErrorCode?: string; paymentId?: string; retryCount?: number }): Promise<AgentDiagnosis> {
+  async diagnose(context: {
+    gatewayErrorCode?: string;
+    paymentId?: string;
+    retryCount?: number;
+  }): Promise<AgentDiagnosis> {
     const code = context.gatewayErrorCode ?? 'UNKNOWN';
     if (code === 'TRANSIENT_NETWORK') {
       return {
@@ -82,7 +90,7 @@ export class MockDiagnosisProvider implements AIProvider {
     if (code === 'CARD_DECLINED') {
       return {
         failure_category: 'CARD_DECLINED',
-        confidence: 0.90,
+        confidence: 0.9,
         risk_level: 'HIGH',
         recommended_action: 'HUMAN_REVIEW',
         retry_after_seconds: 0,

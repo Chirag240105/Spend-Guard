@@ -12,17 +12,19 @@ export function PageState({ message, error }: { message: string; error?: boolean
         fontWeight: 500,
       }}
     >
-      {error && (
-        <div style={{ fontSize: 22, marginBottom: 10 }}>⚠️</div>
-      )}
+      {error && <div style={{ fontSize: 22, marginBottom: 10 }}>⚠️</div>}
       {!error && (
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%',
-          border: '2.5px solid #2563eb',
-          borderTopColor: 'transparent',
-          margin: '0 auto 14px',
-          animation: 'spin 0.7s linear infinite',
-        }} />
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            border: '2.5px solid #2563eb',
+            borderTopColor: 'transparent',
+            margin: '0 auto 14px',
+            animation: 'spin 0.7s linear infinite',
+          }}
+        />
       )}
       {message}
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

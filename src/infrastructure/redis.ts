@@ -47,18 +47,18 @@ export async function getDailySpend(agentId: string, date: Date): Promise<number
 export async function incrementDailySpend(
   agentId: string,
   amount: number,
-  date: Date
+  date: Date,
 ): Promise<number> {
   try {
     const client = await getRedisClient();
     const key = `spend:daily:${agentId}:${date.toISOString().split('T')[0]}`;
-    
+
     // Set expiry to 23:59:59 tomorrow
     const tomorrow = new Date(date);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(0, 0, 0, 0);
     const ttlSeconds = Math.floor((tomorrow.getTime() - Date.now()) / 1000);
-    
+
     const newValue = await client.incrByFloat(key, amount);
     if (ttlSeconds > 0) {
       await client.expire(key, ttlSeconds);
@@ -87,19 +87,19 @@ export async function getWeeklySpend(agentId: string, date: Date): Promise<numbe
 export async function incrementWeeklySpend(
   agentId: string,
   amount: number,
-  date: Date
+  date: Date,
 ): Promise<number> {
   try {
     const client = await getRedisClient();
     const weekStart = getWeekStart(date);
     const key = `spend:weekly:${agentId}:${weekStart.toISOString().split('T')[0]}`;
-    
+
     // Set expiry to end of week
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 7);
     weekEnd.setHours(0, 0, 0, 0);
     const ttlSeconds = Math.floor((weekEnd.getTime() - Date.now()) / 1000);
-    
+
     const newValue = await client.incrByFloat(key, amount);
     if (ttlSeconds > 0) {
       await client.expire(key, ttlSeconds);
@@ -128,18 +128,18 @@ export async function getMonthlySpend(agentId: string, date: Date): Promise<numb
 export async function incrementMonthlySpend(
   agentId: string,
   amount: number,
-  date: Date
+  date: Date,
 ): Promise<number> {
   try {
     const client = await getRedisClient();
     const monthStart = getMonthStart(date);
     const key = `spend:monthly:${agentId}:${monthStart.toISOString().slice(0, 7)}`;
-    
+
     // Set expiry to start of next month
     const nextMonth = new Date(monthStart);
     nextMonth.setMonth(nextMonth.getMonth() + 1);
     const ttlSeconds = Math.floor((nextMonth.getTime() - Date.now()) / 1000);
-    
+
     const newValue = await client.incrByFloat(key, amount);
     if (ttlSeconds > 0) {
       await client.expire(key, ttlSeconds);

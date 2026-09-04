@@ -18,6 +18,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!decision) return apiError('NOT_FOUND', 'Decision not found', 404);
     return NextResponse.json({ decision });
   } catch (e) {
-    return apiError('DECISION_FETCH_FAILED', e instanceof Error ? e.message : 'Failed to fetch decision', 500);
+    return apiError(
+      'DECISION_FETCH_FAILED',
+      e instanceof Error ? e.message : 'Failed to fetch decision',
+      500,
+    );
   }
 }

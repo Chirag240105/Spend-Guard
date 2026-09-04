@@ -17,9 +17,7 @@ export interface PolicyCompilationResult {
  * Compiles a natural language policy into a structured, validated policy
  * Uses Grok as the primary provider, Gemini as the backup, and mock compilation last.
  */
-export async function compilePolicy(
-  naturalLanguage: string
-): Promise<PolicyCompilationResult> {
+export async function compilePolicy(naturalLanguage: string): Promise<PolicyCompilationResult> {
   // Validate input
   if (!naturalLanguage || naturalLanguage.trim().length === 0) {
     return {

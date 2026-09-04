@@ -13,7 +13,7 @@ export class PolicyService {
   static async createPolicy(
     name: string,
     naturalLanguage: string,
-    compiledPolicy: CompiledPolicy
+    compiledPolicy: CompiledPolicy,
   ): Promise<Policy> {
     const prisma = getPrismaClient();
 
@@ -51,10 +51,7 @@ export class PolicyService {
   /**
    * Update a policy
    */
-  static async updatePolicy(
-    policyId: string,
-    compiledPolicy: CompiledPolicy
-  ): Promise<Policy> {
+  static async updatePolicy(policyId: string, compiledPolicy: CompiledPolicy): Promise<Policy> {
     const prisma = getPrismaClient();
 
     // Validate the compiled policy
@@ -103,7 +100,12 @@ export class PolicyService {
     const prisma = getPrismaClient();
     const where = options.active === undefined ? undefined : { active: options.active };
     const [items, total] = await Promise.all([
-      prisma.policy.findMany({ where, orderBy: { createdAt: 'desc' }, skip: options.skip, take: options.take }),
+      prisma.policy.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: options.skip,
+        take: options.take,
+      }),
       prisma.policy.count({ where }),
     ]);
     return { items: items.map((item) => this.mapDatabasePolicyToDomain(item)), total };

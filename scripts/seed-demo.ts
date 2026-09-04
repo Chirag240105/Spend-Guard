@@ -14,26 +14,80 @@ Block gaming and entertainment.
 Anything above ₹500 needs my approval.`;
 
 const DEMO_TRANSACTIONS = [
-  { amount: 350,  merchant: 'Grocery Mart',       category: 'Groceries',       agentId: 'agent_001', expectedDecision: 'ALLOW' },
-  { amount: 450,  merchant: 'School Books Store', category: 'School Supplies', agentId: 'agent_001', expectedDecision: 'ALLOW' },
-  { amount: 700,  merchant: 'School Books Store', category: 'School Supplies', agentId: 'agent_001', expectedDecision: 'HOLD'  },
-  { amount: 900,  merchant: 'Gaming Zone',         category: 'Gaming',          agentId: 'agent_001', expectedDecision: 'BLOCK' },
-  { amount: 1500, merchant: 'Big Mart',            category: 'Groceries',       agentId: 'agent_001', expectedDecision: 'BLOCK' },
-  { amount: 300,  merchant: 'Pharmacy Plus',       category: 'Pharmacy',        agentId: 'agent_001', expectedDecision: 'HOLD'  },
-  { amount: 200,  merchant: 'Netflix',             category: 'Entertainment',   agentId: 'agent_001', expectedDecision: 'BLOCK' },
-  { amount: 450,  merchant: 'Food Court',          category: 'Food',            agentId: 'agent_001', expectedDecision: 'HOLD'  },
+  {
+    amount: 350,
+    merchant: 'Grocery Mart',
+    category: 'Groceries',
+    agentId: 'agent_001',
+    expectedDecision: 'ALLOW',
+  },
+  {
+    amount: 450,
+    merchant: 'School Books Store',
+    category: 'School Supplies',
+    agentId: 'agent_001',
+    expectedDecision: 'ALLOW',
+  },
+  {
+    amount: 700,
+    merchant: 'School Books Store',
+    category: 'School Supplies',
+    agentId: 'agent_001',
+    expectedDecision: 'HOLD',
+  },
+  {
+    amount: 900,
+    merchant: 'Gaming Zone',
+    category: 'Gaming',
+    agentId: 'agent_001',
+    expectedDecision: 'BLOCK',
+  },
+  {
+    amount: 1500,
+    merchant: 'Big Mart',
+    category: 'Groceries',
+    agentId: 'agent_001',
+    expectedDecision: 'BLOCK',
+  },
+  {
+    amount: 300,
+    merchant: 'Pharmacy Plus',
+    category: 'Pharmacy',
+    agentId: 'agent_001',
+    expectedDecision: 'HOLD',
+  },
+  {
+    amount: 200,
+    merchant: 'Netflix',
+    category: 'Entertainment',
+    agentId: 'agent_001',
+    expectedDecision: 'BLOCK',
+  },
+  {
+    amount: 450,
+    merchant: 'Food Court',
+    category: 'Food',
+    agentId: 'agent_001',
+    expectedDecision: 'HOLD',
+  },
 ];
 
 const DEMO_PAYMENT_SCENARIOS: Array<{
-  scenario: 'TRANSIENT_NETWORK' | 'GATEWAY_TIMEOUT' | 'BANK_TEMPORARY_FAILURE' | 'INSUFFICIENT_FUNDS' | 'CARD_DECLINED' | 'UNKNOWN';
+  scenario:
+    | 'TRANSIENT_NETWORK'
+    | 'GATEWAY_TIMEOUT'
+    | 'BANK_TEMPORARY_FAILURE'
+    | 'INSUFFICIENT_FUNDS'
+    | 'CARD_DECLINED'
+    | 'UNKNOWN';
   amount: number;
   label: string;
 }> = [
-  { scenario: 'GATEWAY_TIMEOUT',       amount: 4999,  label: 'Gateway Timeout → DELAYED_RETRY'  },
+  { scenario: 'GATEWAY_TIMEOUT', amount: 4999, label: 'Gateway Timeout → DELAYED_RETRY' },
   { scenario: 'BANK_TEMPORARY_FAILURE', amount: 12500, label: 'Bank Temp Failure → DELAYED_RETRY' },
-  { scenario: 'INSUFFICIENT_FUNDS',    amount: 75000, label: 'Insufficient Funds → DO_NOT_RETRY' },
-  { scenario: 'CARD_DECLINED',         amount: 3200,  label: 'Card Declined → HUMAN_REVIEW'      },
-  { scenario: 'UNKNOWN',               amount: 9900,  label: 'Unknown Error → HUMAN_REVIEW'      },
+  { scenario: 'INSUFFICIENT_FUNDS', amount: 75000, label: 'Insufficient Funds → DO_NOT_RETRY' },
+  { scenario: 'CARD_DECLINED', amount: 3200, label: 'Card Declined → HUMAN_REVIEW' },
+  { scenario: 'UNKNOWN', amount: 9900, label: 'Unknown Error → HUMAN_REVIEW' },
 ];
 
 async function seedDemo() {
@@ -68,9 +122,12 @@ async function seedDemo() {
       {
         name: 'Agent Daily Spending Policy',
         limits: { perTransaction: 500, daily: 2000 },
-        categories: { allowed: ['groceries', 'school_supplies'], blocked: ['gaming', 'entertainment'] },
+        categories: {
+          allowed: ['groceries', 'school_supplies'],
+          blocked: ['gaming', 'entertainment'],
+        },
         approval: { aboveAmount: 500 },
-      }
+      },
     );
     console.log(`   ✅ Policy ID: ${demoPolicy.id}`);
 
@@ -80,11 +137,17 @@ async function seedDemo() {
     for (const tx of DEMO_TRANSACTIONS) {
       try {
         const result = await TransactionEvaluator.evaluateTransaction({
-          policyId: demoPolicy.id, amount: tx.amount, merchant: tx.merchant,
-          category: tx.category, agentId: tx.agentId, currency: 'INR',
+          policyId: demoPolicy.id,
+          amount: tx.amount,
+          merchant: tx.merchant,
+          category: tx.category,
+          agentId: tx.agentId,
+          currency: 'INR',
         });
         const ok = result.decision === tx.expectedDecision ? '✅' : '⚠️';
-        console.log(`${ok} ₹${String(tx.amount).padEnd(5)} ${tx.merchant.padEnd(22)} → ${result.decision}`);
+        console.log(
+          `${ok} ₹${String(tx.amount).padEnd(5)} ${tx.merchant.padEnd(22)} → ${result.decision}`,
+        );
       } catch (e) {
         console.error(`   ❌ ${tx.merchant}: ${String(e)}`);
       }
@@ -128,7 +191,6 @@ async function seedDemo() {
     console.log('\n🚀 Start the server:');
     console.log('   npm run dev');
     console.log('   → http://localhost:3000\n');
-
   } catch (error) {
     console.error('❌ Seed failed:', error);
     process.exit(1);

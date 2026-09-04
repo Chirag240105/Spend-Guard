@@ -13,7 +13,7 @@ export function detectPolicyConflicts(policy: CompiledPolicy): PolicyConflict {
     policy.limits.perTransaction > policy.limits.daily
   ) {
     conflicts.push(
-      `Per-transaction limit (₹${policy.limits.perTransaction}) exceeds daily limit (₹${policy.limits.daily})`
+      `Per-transaction limit (₹${policy.limits.perTransaction}) exceeds daily limit (₹${policy.limits.daily})`,
     );
   }
 
@@ -29,9 +29,7 @@ export function detectPolicyConflicts(policy: CompiledPolicy): PolicyConflict {
     const intersection = Array.from(allowed).filter((c) => blocked.has(c));
 
     if (intersection.length > 0) {
-      conflicts.push(
-        `Categories cannot be both allowed and blocked: ${intersection.join(', ')}`
-      );
+      conflicts.push(`Categories cannot be both allowed and blocked: ${intersection.join(', ')}`);
     }
   }
 
@@ -42,18 +40,12 @@ export function detectPolicyConflicts(policy: CompiledPolicy): PolicyConflict {
     policy.merchants.allowed.length > 0 &&
     policy.merchants.blocked.length > 0
   ) {
-    const allowed = new Set(
-      policy.merchants.allowed.map((m) => m.toLowerCase())
-    );
-    const blocked = new Set(
-      policy.merchants.blocked.map((m) => m.toLowerCase())
-    );
+    const allowed = new Set(policy.merchants.allowed.map((m) => m.toLowerCase()));
+    const blocked = new Set(policy.merchants.blocked.map((m) => m.toLowerCase()));
     const intersection = Array.from(allowed).filter((m) => blocked.has(m));
 
     if (intersection.length > 0) {
-      conflicts.push(
-        `Merchants cannot be both allowed and blocked: ${intersection.join(', ')}`
-      );
+      conflicts.push(`Merchants cannot be both allowed and blocked: ${intersection.join(', ')}`);
     }
   }
 

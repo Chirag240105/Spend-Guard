@@ -24,6 +24,10 @@ export async function GET(req: NextRequest) {
     ]);
     return NextResponse.json({ items, total, limit, skip });
   } catch (e) {
-    return apiError('DECISIONS_FAILED', e instanceof Error ? e.message : 'Failed to list decisions', 500);
+    return apiError(
+      'DECISIONS_FAILED',
+      e instanceof Error ? e.message : 'Failed to list decisions',
+      500,
+    );
   }
 }

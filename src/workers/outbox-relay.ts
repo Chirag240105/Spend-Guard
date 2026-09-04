@@ -72,11 +72,9 @@ async function runDiagnosisWorker() {
       // Import dynamically to avoid circular deps
       const { runSystemDiagnosis } = await import('../modules/agent/diagnosis');
       const report = await runSystemDiagnosis();
-      await redis.set(
-        `diagnosis:result:${job.payload.requestId}`,
-        JSON.stringify(report),
-        { EX: 300 }
-      );
+      await redis.set(`diagnosis:result:${job.payload.requestId}`, JSON.stringify(report), {
+        EX: 300,
+      });
     }
   }
 }

@@ -9,10 +9,7 @@ export class TransactionService {
   /**
    * Create a new transaction
    */
-  static async createTransaction(
-    policyId: string,
-    input: TransactionInput
-  ): Promise<Transaction> {
+  static async createTransaction(policyId: string, input: TransactionInput): Promise<Transaction> {
     const prisma = getPrismaClient();
 
     const transaction = await prisma.transaction.create({
@@ -47,7 +44,7 @@ export class TransactionService {
    */
   static async getTransactionsByPolicyId(
     policyId: string,
-    limit: number = 50
+    limit: number = 50,
   ): Promise<Transaction[]> {
     const prisma = getPrismaClient();
     const transactions = await prisma.transaction.findMany({
@@ -64,7 +61,7 @@ export class TransactionService {
    */
   static async getTransactionsByAgentId(
     agentId: string,
-    limit: number = 50
+    limit: number = 50,
   ): Promise<Transaction[]> {
     const prisma = getPrismaClient();
     const transactions = await prisma.transaction.findMany({

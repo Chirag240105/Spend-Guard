@@ -41,23 +41,19 @@ export async function GET(req: NextRequest) {
       where: { status: 'SUCCESS', retryCount: { gt: 0 } },
       include: { order: true },
     });
-    const revenueRecovered = recoveredOrders.reduce(
-      (sum, p) => sum + Number(p.order.amount),
-      0
-    );
+    const revenueRecovered = recoveredOrders.reduce((sum, p) => sum + Number(p.order.amount), 0);
 
     // Revenue at risk = sum of amounts for HUMAN_REVIEW payments
     const atRiskOrders = await prisma.payment.findMany({
       where: { status: 'HUMAN_REVIEW' },
       include: { order: true },
     });
-    const revenueAtRisk = atRiskOrders.reduce(
-      (sum, p) => sum + Number(p.order.amount),
-      0
-    );
+    const revenueAtRisk = atRiskOrders.reduce((sum, p) => sum + Number(p.order.amount), 0);
 
     const recoveryRate =
-      totalPayments > 0 ? Math.round((recoveredPayments / Math.max(failedPayments + recoveredPayments, 1)) * 100) : 0;
+      totalPayments > 0
+        ? Math.round((recoveredPayments / Math.max(failedPayments + recoveredPayments, 1)) * 100)
+        : 0;
 
     return NextResponse.json({
       summary: {

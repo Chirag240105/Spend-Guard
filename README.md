@@ -78,16 +78,16 @@ npm run worker:both
 
 The existing application exposes legacy policy/transaction routes plus these LedgerFlow routes:
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/api/v1/orders` | Create an order; idempotency key required. |
-| POST | `/api/v1/payments` | Create and attempt a payment; idempotency key required. |
-| GET | `/api/v1/payments/:id` | Read payment details. |
-| POST | `/api/v1/payments/:id/retry` | Request another payment attempt; idempotency key required. |
-| GET | `/api/v1/approvals` | List pending recovery approvals. |
-| POST | `/api/v1/approvals/:id/approve` | Approve a recovery attempt. |
-| POST | `/api/v1/approvals/:id/reject` | Reject recovery. |
-| GET | `/api/health` | Existing application health endpoint. |
+| Method | Path                            | Purpose                                                    |
+| ------ | ------------------------------- | ---------------------------------------------------------- |
+| POST   | `/api/v1/orders`                | Create an order; idempotency key required.                 |
+| POST   | `/api/v1/payments`              | Create and attempt a payment; idempotency key required.    |
+| GET    | `/api/v1/payments/:id`          | Read payment details.                                      |
+| POST   | `/api/v1/payments/:id/retry`    | Request another payment attempt; idempotency key required. |
+| GET    | `/api/v1/approvals`             | List pending recovery approvals.                           |
+| POST   | `/api/v1/approvals/:id/approve` | Approve a recovery attempt.                                |
+| POST   | `/api/v1/approvals/:id/reject`  | Reject recovery.                                           |
+| GET    | `/api/health`                   | Existing application health endpoint.                      |
 
 Write routes use `SPEND_GUARD_API_KEY` when it is configured.
 
@@ -112,14 +112,14 @@ Do not commit `.env` or `.env.local`. The current system-diagnosis implementatio
 
 The project has the right basic commands for a CI workflow, but it is **not yet ready for required green CI gates** as of the latest local verification.
 
-| Check | Command | Latest result | CI status |
-| --- | --- | --- | --- |
-| Lint | `npm run lint` | Completed with 6 unused-variable warnings and no errors. | Usable; warnings should be cleaned up. |
-| Unit tests | `npm test` | Did not start: Vitest/esbuild could not resolve `vitest.config.ts` because of a filesystem access error. | Blocked. |
-| Production build | `npm run build` | Failed TypeScript checks: payment/diagnosis modules export incompatible interfaces used by LedgerFlow files. | Blocked. |
-| Prisma schema | `npx prisma validate` | Passed: `prisma/schema.prisma` is valid. | Ready to include in CI. |
-| Database migration | `npx prisma migrate dev` | Not executed in this verification pass. | Requires PostgreSQL. |
-| Integration checks | seed/outbox/ledger scripts | Present but not run in this verification pass. | Requires PostgreSQL and Redis. |
+| Check              | Command                    | Latest result                                                                                                | CI status                              |
+| ------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| Lint               | `npm run lint`             | Completed with 6 unused-variable warnings and no errors.                                                     | Usable; warnings should be cleaned up. |
+| Unit tests         | `npm test`                 | Did not start: Vitest/esbuild could not resolve `vitest.config.ts` because of a filesystem access error.     | Blocked.                               |
+| Production build   | `npm run build`            | Failed TypeScript checks: payment/diagnosis modules export incompatible interfaces used by LedgerFlow files. | Blocked.                               |
+| Prisma schema      | `npx prisma validate`      | Passed: `prisma/schema.prisma` is valid.                                                                     | Ready to include in CI.                |
+| Database migration | `npx prisma migrate dev`   | Not executed in this verification pass.                                                                      | Requires PostgreSQL.                   |
+| Integration checks | seed/outbox/ledger scripts | Present but not run in this verification pass.                                                               | Requires PostgreSQL and Redis.         |
 
 ### Recommended CI pipeline after blockers are fixed
 

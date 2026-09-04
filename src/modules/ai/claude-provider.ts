@@ -5,7 +5,7 @@ import { CompiledPolicy } from '../policy/policy.types';
  */
 export async function claudeCompilePolicy(
   naturalLanguage: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<CompiledPolicy> {
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -28,14 +28,11 @@ export async function claudeCompilePolicy(
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Claude API error: ${response.status} ${response.statusText}`
-      );
+      throw new Error(`Claude API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    const responseText =
-      data.content[0].type === 'text' ? data.content[0].text : '';
+    const responseText = data.content[0].type === 'text' ? data.content[0].text : '';
 
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);

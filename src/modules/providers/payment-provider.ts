@@ -125,10 +125,18 @@ export class MockPaymentProvider implements PaymentProvider {
   }
   async execute(params: { paymentId: string; scenario?: string }): Promise<PaymentExecutionResult> {
     if (params.scenario === 'TRANSIENT_NETWORK') {
-      return { success: false, errorCode: 'TRANSIENT_NETWORK', error: 'Network timeout during gateway request' };
+      return {
+        success: false,
+        errorCode: 'TRANSIENT_NETWORK',
+        error: 'Network timeout during gateway request',
+      };
     }
     if (params.scenario === 'INSUFFICIENT_FUNDS') {
-      return { success: false, errorCode: 'INSUFFICIENT_FUNDS', error: 'Customer account has insufficient funds' };
+      return {
+        success: false,
+        errorCode: 'INSUFFICIENT_FUNDS',
+        error: 'Customer account has insufficient funds',
+      };
     }
     if (params.scenario === 'GATEWAY_TIMEOUT') {
       return { success: false, errorCode: 'GATEWAY_TIMEOUT', error: 'Payment gateway timeout' };

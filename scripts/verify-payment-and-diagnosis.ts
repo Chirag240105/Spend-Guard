@@ -14,7 +14,7 @@ async function main() {
   console.log('\n=== Step 2: Submit Failed Test Payment ===');
   const adapter = new RazorpayAdapter(
     process.env.RAZORPAY_KEY_ID!,
-    process.env.RAZORPAY_KEY_SECRET!
+    process.env.RAZORPAY_KEY_SECRET!,
   );
 
   // Create an order

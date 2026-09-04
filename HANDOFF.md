@@ -10,13 +10,16 @@
 ## 🎯 What Was Delivered
 
 ### Core Product Features Implemented
+
 ✅ **Policy Compilation from Natural Language**
+
 - Claude API integration (with mock fallback)
 - Comprehensive constraint extraction
 - Conflict detection
 - Zod validation
 
 ✅ **Transaction Evaluation Engine**
+
 - Deterministic rule evaluation (9 categories)
 - Per-transaction/daily/weekly/monthly limits
 - Category & merchant allow/block lists
@@ -25,12 +28,14 @@
 - Spending counter integration
 
 ✅ **Complete Authorization Flow**
+
 - ALLOW: All rules pass
 - HOLD: Requires human review
 - BLOCK: Hard rules violated
 - Detailed rule-by-rule explanations
 
 ✅ **Audit & Compliance**
+
 - Complete audit trail logging
 - Event tracking (POLICY_CREATED, TRANSACTION_RECEIVED, DECISION_MADE)
 - Actor attribution
@@ -38,6 +43,7 @@
 - PostgreSQL persistence
 
 ✅ **Resilience & Failover**
+
 - Redis unavailable → HOLD (safe default)
 - Claude unavailable → Mock provider (graceful degradation)
 - Invalid input → Validation error (reject safely)
@@ -46,6 +52,7 @@
 ### Technical Implementation
 
 **Code Statistics:**
+
 - 4,000+ lines of TypeScript
 - 25+ TypeScript files
 - 19 unit tests
@@ -54,6 +61,7 @@
 - 9 business rule categories
 
 **Infrastructure:**
+
 - PostgreSQL (persistence + audit trail)
 - Redis (spending counters)
 - Prisma (type-safe ORM)
@@ -68,6 +76,7 @@
 ## 📋 Complete File Listing
 
 ### Core Business Logic (15 files)
+
 ```
 src/modules/
 ├── ai/
@@ -96,6 +105,7 @@ src/modules/
 ```
 
 ### Infrastructure (2 files)
+
 ```
 src/infrastructure/
 ├── database.ts                     ← Prisma client singleton
@@ -103,6 +113,7 @@ src/infrastructure/
 ```
 
 ### API Endpoints (8 files)
+
 ```
 app/api/
 ├── policies/
@@ -118,6 +129,7 @@ app/api/
 ```
 
 ### Configuration & Database (7 files)
+
 ```
 ├── prisma/
 │   ├── schema.prisma               ← Full database schema
@@ -130,6 +142,7 @@ app/api/
 ```
 
 ### Documentation (5 files)
+
 ```
 ├── README.md                       ← 500+ lines, complete guide
 ├── PHASE5_SUMMARY.md               ← What's implemented in Phase 5
@@ -139,6 +152,7 @@ app/api/
 ```
 
 ### Automation & Scripts (2 files)
+
 ```
 ├── scripts/
 │   ├── seed-demo.ts                ← Demo data seeding
@@ -146,6 +160,7 @@ app/api/
 ```
 
 ### Tests (3 files)
+
 ```
 ├── src/modules/decision/evaluator.test.ts      ← 8 test cases
 ├── src/modules/policy/policy.validator.test.ts ← 5 test cases
@@ -157,21 +172,25 @@ app/api/
 ## 🚀 Quick Start
 
 ### 1. Setup (2 minutes)
+
 ```bash
 bash scripts/setup.sh
 ```
 
 This does:
+
 - Starts Docker containers
 - Waits for services
 - Shows next steps
 
 ### 2. Database (1 minute)
+
 ```bash
 npx prisma migrate deploy
 ```
 
 ### 3. Run Demo (1 minute)
+
 ```bash
 npx ts-node scripts/seed-demo.ts
 ```
@@ -179,6 +198,7 @@ npx ts-node scripts/seed-demo.ts
 Creates a sample policy with 8 demo transactions
 
 ### 4. Start Dev Server
+
 ```bash
 npm run dev
 ```
@@ -190,6 +210,7 @@ Server runs on http://localhost:3000
 ## 📊 API Reference
 
 ### Compile a Policy
+
 ```bash
 POST /api/policies/compile
 Content-Type: application/json
@@ -200,6 +221,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -215,6 +237,7 @@ Content-Type: application/json
 ```
 
 ### Evaluate a Transaction
+
 ```bash
 POST /api/transactions/evaluate
 Content-Type: application/json
@@ -229,6 +252,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -246,6 +270,7 @@ Content-Type: application/json
 ```
 
 ### Other Endpoints
+
 - `GET /api/policies` - List all policies
 - `GET /api/policies/{id}` - Get specific policy
 - `GET /api/policies/{id}/transactions` - Policy transactions
@@ -258,70 +283,78 @@ Content-Type: application/json
 ## 🔧 Key Features
 
 ### ✅ Policy Compilation
-| Feature | Status | Details |
-|---------|--------|---------|
-| Claude API | ✅ | Real API with structured prompting |
-| Mock Fallback | ✅ | Keyword extraction, no API needed |
-| Validation | ✅ | Zod schemas for all outputs |
-| Conflict Detection | ✅ | Detects contradictory rules |
-| Warnings | ✅ | Alerts for incomplete policies |
-| Error Handling | ✅ | Graceful failures & fallbacks |
+
+| Feature            | Status | Details                            |
+| ------------------ | ------ | ---------------------------------- |
+| Claude API         | ✅     | Real API with structured prompting |
+| Mock Fallback      | ✅     | Keyword extraction, no API needed  |
+| Validation         | ✅     | Zod schemas for all outputs        |
+| Conflict Detection | ✅     | Detects contradictory rules        |
+| Warnings           | ✅     | Alerts for incomplete policies     |
+| Error Handling     | ✅     | Graceful failures & fallbacks      |
 
 ### ✅ Transaction Evaluation
-| Rule Category | Status | Behavior |
-|--------------|--------|----------|
-| Per-Transaction Limit | ✅ | Hard BLOCK if exceeded |
-| Daily Limit | ✅ | Hard BLOCK if exceeded |
-| Weekly Limit | ✅ | Hard BLOCK if exceeded |
-| Monthly Limit | ✅ | Hard BLOCK if exceeded |
-| Blocked Categories | ✅ | Hard BLOCK always |
-| Allowed Categories | ✅ | HOLD if not in list |
-| Blocked Merchants | ✅ | Hard BLOCK always |
-| Allowed Merchants | ✅ | HOLD if not in list |
-| Approval Threshold | ✅ | HOLD if exceeded |
+
+| Rule Category         | Status | Behavior               |
+| --------------------- | ------ | ---------------------- |
+| Per-Transaction Limit | ✅     | Hard BLOCK if exceeded |
+| Daily Limit           | ✅     | Hard BLOCK if exceeded |
+| Weekly Limit          | ✅     | Hard BLOCK if exceeded |
+| Monthly Limit         | ✅     | Hard BLOCK if exceeded |
+| Blocked Categories    | ✅     | Hard BLOCK always      |
+| Allowed Categories    | ✅     | HOLD if not in list    |
+| Blocked Merchants     | ✅     | Hard BLOCK always      |
+| Allowed Merchants     | ✅     | HOLD if not in list    |
+| Approval Threshold    | ✅     | HOLD if exceeded       |
 
 ### ✅ Decision Types
+
 - **ALLOW**: All rules pass, ready for payment
 - **HOLD**: Requires human review before proceeding
 - **BLOCK**: Violates policy, payment rejected
 
 ### ✅ Resilience
-| Failure Mode | Status | Behavior |
-|-------------|--------|----------|
-| Redis Down | ✅ | HOLD (fail safely) |
-| Claude Down | ✅ | Use mock provider |
-| Invalid Input | ✅ | Return validation error |
-| Policy Conflicts | ✅ | Reject with message |
-| DB Error | ✅ | Log & return error |
+
+| Failure Mode     | Status | Behavior                |
+| ---------------- | ------ | ----------------------- |
+| Redis Down       | ✅     | HOLD (fail safely)      |
+| Claude Down      | ✅     | Use mock provider       |
+| Invalid Input    | ✅     | Return validation error |
+| Policy Conflicts | ✅     | Reject with message     |
+| DB Error         | ✅     | Log & return error      |
 
 ---
 
 ## 📈 Performance
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Policy compilation | 500ms (Claude) / 100ms (mock) | API call vs local |
-| Transaction evaluation | 50-100ms | Redis + DB reads |
-| Health check | <10ms | Just returns JSON |
-| Spending counter update | <5ms | Atomic Redis operation |
+| Operation               | Time                          | Notes                  |
+| ----------------------- | ----------------------------- | ---------------------- |
+| Policy compilation      | 500ms (Claude) / 100ms (mock) | API call vs local      |
+| Transaction evaluation  | 50-100ms                      | Redis + DB reads       |
+| Health check            | <10ms                         | Just returns JSON      |
+| Spending counter update | <5ms                          | Atomic Redis operation |
 
 ---
 
 ## 🗄️ Database Schema
 
 ### Policy Table
+
 - id, name, naturalLanguage, compiledPolicy (JSON), version, active
 - Supports versioning and deactivation
 
 ### Transaction Table
+
 - id, amount, merchant, category, agentId, policyId, metadata
 - Indexes: agentId, policyId
 
 ### Decision Table
+
 - id, transactionId (unique), decision, reason, ruleResults (JSON)
 - Source: DETERMINISTIC | AI | HUMAN_OVERRIDE
 
 ### AuditLog Table
+
 - id, event, actor, details (JSON), transactionId, policyId
 - Indexes: policyId, transactionId
 
@@ -330,32 +363,36 @@ Content-Type: application/json
 ## ✨ Production-Ready
 
 ### Security
+
 ✅ No secrets in code  
 ✅ Environment-based configuration  
 ✅ Input validation (Zod)  
 ✅ Error handling without leaking info  
-✅ Audit trail for compliance  
+✅ Audit trail for compliance
 
 ### Scalability
+
 ✅ Stateless API design  
 ✅ Redis for high-volume operations  
 ✅ PostgreSQL indexes  
 ✅ Database connection pooling (Prisma)  
-✅ Horizontal scaling ready  
+✅ Horizontal scaling ready
 
 ### Reliability
+
 ✅ Graceful fallbacks  
 ✅ Redis failure → HOLD  
 ✅ Claude failure → Mock provider  
 ✅ Comprehensive error logging  
-✅ Transaction idempotency  
+✅ Transaction idempotency
 
 ### Maintainability
+
 ✅ Clean code structure  
 ✅ Comprehensive documentation  
 ✅ Unit tests included  
 ✅ Type safety (TypeScript)  
-✅ Clear separation of concerns  
+✅ Clear separation of concerns
 
 ---
 
@@ -400,6 +437,7 @@ All documentation is included in the repository:
 ## ✅ Checklist: What Works
 
 ### Core Functionality
+
 - ✅ Compile natural language policies to structured JSON
 - ✅ Validate compiled policies (Zod)
 - ✅ Detect policy conflicts
@@ -411,30 +449,35 @@ All documentation is included in the repository:
 - ✅ Support human overrides
 
 ### API Layer
+
 - ✅ 8 REST endpoints
 - ✅ JSON request/response
 - ✅ Error handling
 - ✅ Health check
 
 ### Database
+
 - ✅ PostgreSQL schema
 - ✅ Prisma migrations
 - ✅ Indexes for performance
 - ✅ Type-safe queries
 
 ### Caching
+
 - ✅ Redis spending counters
 - ✅ Atomic operations
 - ✅ TTL management
 - ✅ Failure handling
 
 ### Testing
+
 - ✅ 19 unit tests
 - ✅ Vitest configured
 - ✅ Mock dependencies
 - ✅ No real API calls in tests
 
 ### Documentation
+
 - ✅ README with examples
 - ✅ API documentation
 - ✅ Developer guide
@@ -446,6 +489,7 @@ All documentation is included in the repository:
 ## 🎯 Next Phase (Phase 6): Dashboard
 
 Phase 6 will add the user interface:
+
 - React components for policy composer
 - Transaction feed with real-time updates
 - Decision details view
@@ -460,22 +504,26 @@ Phase 6 will add the user interface:
 ## ⚠️ Important Notes
 
 ### No Manual Setup Required (Except API Keys)
+
 - Docker containers: Pre-configured in `docker-compose.yml`
 - Database schema: Ready in `prisma/schema.prisma`
 - Migrations: Pre-created in `prisma/migrations/`
 - Demo data: Ready via `scripts/seed-demo.ts`
 
 ### Optional: Anthropic API Key
+
 - If not configured: System uses mock provider automatically
 - Works fine without it for development/testing
 - Required for production AI compilation
 
 ### Optional: Razorpay Integration
+
 - Not implemented in Phase 5 (Phase 7 task)
 - Mock payment provider can be used for now
 - APIs are prepared for payment adapter integration
 
 ### CI/CD and Testing
+
 - As requested, CI/CD (Phase 9) and Testing (Phase 8) were skipped
 - Unit tests are included for core logic
 - CI pipeline can be added later
@@ -485,18 +533,23 @@ Phase 6 will add the user interface:
 ## 📞 Questions?
 
 ### Understanding the Code
+
 → See `DEVELOPER_GUIDE.md`
 
 ### API Examples
+
 → See `README.md` (API Reference section)
 
 ### How to Extend
+
 → See `DEVELOPER_GUIDE.md` (Adding Features section)
 
 ### Technical Details
+
 → See `IMPLEMENTATION.md`
 
 ### What's Implemented
+
 → See `PHASE5_SUMMARY.md`
 
 ---
@@ -506,6 +559,7 @@ Phase 6 will add the user interface:
 The system is **fully functional and ready to use**:
 
 1. **Quick Start** (5 minutes)
+
    ```bash
    bash scripts/setup.sh
    npm run dev
@@ -525,17 +579,17 @@ The system is **fully functional and ready to use**:
 
 ## 📊 Metrics Summary
 
-| Metric | Value |
-|--------|-------|
-| Lines of Code | 4,000+ |
-| TypeScript Files | 25+ |
-| API Endpoints | 8 |
-| Database Tables | 4 |
-| Test Cases | 19 |
-| Documentation Pages | 5 |
-| Decision Rules | 9 |
-| Setup Time | 5 minutes |
-| API Response Time | 50-100ms |
+| Metric              | Value     |
+| ------------------- | --------- |
+| Lines of Code       | 4,000+    |
+| TypeScript Files    | 25+       |
+| API Endpoints       | 8         |
+| Database Tables     | 4         |
+| Test Cases          | 19        |
+| Documentation Pages | 5         |
+| Decision Rules      | 9         |
+| Setup Time          | 5 minutes |
+| API Response Time   | 50-100ms  |
 
 ---
 
@@ -545,6 +599,6 @@ The system is **fully functional and ready to use**:
 
 ---
 
-*Generated: September 1, 2026*  
-*Status: Production-Ready*  
-*Next Phase: Dashboard (Phase 6)*
+_Generated: September 1, 2026_  
+_Status: Production-Ready_  
+_Next Phase: Dashboard (Phase 6)_

@@ -38,7 +38,7 @@ describe('Mock Policy Compiler', () => {
                 Block gaming and entertainment.
                 Anything above ₹500 needs approval.`;
     const policy = await mockCompilePolicy(nl);
-    
+
     expect(policy.limits.daily).toBe(2000);
     expect(policy.limits.perTransaction).toBe(500);
     expect(policy.categories.blocked).toContain('gaming');

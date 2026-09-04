@@ -5,7 +5,7 @@ import { logRoute, requireApiKey } from '@/src/infrastructure/api';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ policyId: string }> }
+  { params }: { params: Promise<{ policyId: string }> },
 ) {
   try {
     const { policyId } = await params;
@@ -30,30 +30,44 @@ export async function GET(
     });
   } catch (error) {
     console.error('Error fetching policy:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch policy' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch policy' }, { status: 500 });
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ policyId: string }> }) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ policyId: string }> },
+) {
   try {
-    const denied = requireApiKey(request); if (denied) return denied;
-    const { policyId } = await params; const body = await request.json();
+    const denied = requireApiKey(request);
+    if (denied) return denied;
+    const { policyId } = await params;
+    const body = await request.json();
     const parsed = CompiledPolicySchema.safeParse(body.compiledPolicy);
-    if (!parsed.success) return NextResponse.json({ error: 'A valid compiledPolicy is required' }, { status: 400 });
+    if (!parsed.success)
+      return NextResponse.json({ error: 'A valid compiledPolicy is required' }, { status: 400 });
     const policy = await PolicyService.updatePolicy(policyId, parsed.data);
     logRoute('policy_updated', { policyId });
     return NextResponse.json({ success: true, policy });
-  } catch (error) { console.error('Error updating policy:', error); return NextResponse.json({ error: 'Failed to update policy' }, { status: 500 }); }
+  } catch (error) {
+    console.error('Error updating policy:', error);
+    return NextResponse.json({ error: 'Failed to update policy' }, { status: 500 });
+  }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ policyId: string }> }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ policyId: string }> },
+) {
   try {
-    const denied = requireApiKey(request); if (denied) return denied;
-    const { policyId } = await params; await PolicyService.deactivatePolicy(policyId);
+    const denied = requireApiKey(request);
+    if (denied) return denied;
+    const { policyId } = await params;
+    await PolicyService.deactivatePolicy(policyId);
     logRoute('policy_deactivated', { policyId });
     return NextResponse.json({ success: true });
-  } catch (error) { console.error('Error deactivating policy:', error); return NextResponse.json({ error: 'Failed to deactivate policy' }, { status: 500 }); }
+  } catch (error) {
+    console.error('Error deactivating policy:', error);
+    return NextResponse.json({ error: 'Failed to deactivate policy' }, { status: 500 });
+  }
 }

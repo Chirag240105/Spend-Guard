@@ -16,9 +16,7 @@ export interface PolicyCompilerResult {
  * This will use Claude API to interpret the natural language
  * Currently returns a placeholder
  */
-export async function compilePolicy(
-  naturalLanguage: string
-): Promise<PolicyCompilerResult> {
+export async function compilePolicy(naturalLanguage: string): Promise<PolicyCompilerResult> {
   // This will be implemented in Phase 5 (AI module)
   // For now, return a placeholder structure
   if (!naturalLanguage || naturalLanguage.trim().length === 0) {

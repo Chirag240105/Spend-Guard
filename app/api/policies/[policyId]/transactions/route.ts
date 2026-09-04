@@ -4,25 +4,20 @@ import { DecisionService } from '@/src/modules/decision/decision.service';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ policyId: string }> }
+  { params }: { params: Promise<{ policyId: string }> },
 ) {
   try {
     const { policyId } = await params;
-    const transactions = await TransactionService.getTransactionsByPolicyId(
-      policyId,
-      50
-    );
+    const transactions = await TransactionService.getTransactionsByPolicyId(policyId, 50);
 
     const transactionsWithDecisions = await Promise.all(
       transactions.map(async (tx) => {
-        const decision = await DecisionService.getDecisionByTransactionId(
-          tx.id
-        );
+        const decision = await DecisionService.getDecisionByTransactionId(tx.id);
         return {
           ...tx,
           decision: decision || null,
         };
-      })
+      }),
     );
 
     return NextResponse.json({
@@ -31,9 +26,6 @@ export async function GET(
     });
   } catch (error) {
     console.error('Error fetching transactions:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch transactions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });
   }
 }

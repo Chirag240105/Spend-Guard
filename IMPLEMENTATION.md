@@ -60,16 +60,16 @@
 
 ## API surface currently available
 
-| Method | Endpoint | Status |
-| --- | --- | --- |
-| `GET` | `/api/health` | Implemented |
-| `POST` | `/api/policies/compile` | Implemented |
-| `GET` | `/api/policies` | Implemented |
-| `GET` | `/api/policies/:policyId` | Implemented |
-| `POST` | `/api/transactions/evaluate` | Implemented |
-| `GET` | `/api/transactions/:transactionId` | Implemented |
-| `GET` | `/api/policies/:policyId/transactions` | Implemented |
-| `GET` | `/api/policies/:policyId/audit` | Implemented |
+| Method | Endpoint                               | Status      |
+| ------ | -------------------------------------- | ----------- |
+| `GET`  | `/api/health`                          | Implemented |
+| `POST` | `/api/policies/compile`                | Implemented |
+| `GET`  | `/api/policies`                        | Implemented |
+| `GET`  | `/api/policies/:policyId`              | Implemented |
+| `POST` | `/api/transactions/evaluate`           | Implemented |
+| `GET`  | `/api/transactions/:transactionId`     | Implemented |
+| `GET`  | `/api/policies/:policyId/transactions` | Implemented |
+| `GET`  | `/api/policies/:policyId/audit`        | Implemented |
 
 ## What remains
 

@@ -5,7 +5,7 @@ import { getErrorMessage, parseCompiledPolicy } from './provider-utils';
 /** xAI Grok policy compiler (primary provider). */
 export async function grokCompilePolicy(
   naturalLanguage: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<CompiledPolicy> {
   const model = process.env.GROK_MODEL || 'grok-2-latest';
   const response = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -17,9 +17,7 @@ export async function grokCompilePolicy(
     body: JSON.stringify({
       model,
       temperature: 0,
-      messages: [
-        { role: 'user', content: buildPolicyCompilerPrompt(naturalLanguage) },
-      ],
+      messages: [{ role: 'user', content: buildPolicyCompilerPrompt(naturalLanguage) }],
     }),
   });
 

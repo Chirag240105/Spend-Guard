@@ -32,7 +32,11 @@ export async function GET(req: NextRequest) {
     ]);
     return NextResponse.json({ items, total, limit, skip });
   } catch (e) {
-    return apiError('PAYMENTS_FAILED', e instanceof Error ? e.message : 'Failed to list payments', 500);
+    return apiError(
+      'PAYMENTS_FAILED',
+      e instanceof Error ? e.message : 'Failed to list payments',
+      500,
+    );
   }
 }
 
@@ -43,8 +47,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { PaymentService } = await import('@/src/modules/payments/payment.service');
     const { MockPaymentProvider } = await import('@/src/modules/providers/payment-provider');
-    const order = await PaymentService.createOrder(body.merchantId ?? 'demo-merchant', body.amount ?? 100, body.currency ?? 'INR');
-    const result = await PaymentService.createPayment(order.id, body.provider ?? 'mock', body.scenario, new MockPaymentProvider());
+    const order = await PaymentService.createOrder(
+      body.merchantId ?? 'demo-merchant',
+      body.amount ?? 100,
+      body.currency ?? 'INR',
+    );
+    const result = await PaymentService.createPayment(
+      order.id,
+      body.provider ?? 'mock',
+      body.scenario,
+      new MockPaymentProvider(),
+    );
     return NextResponse.json({ result }, { status: 201 });
   } catch (e) {
     return apiError('PAYMENT_CREATE_FAILED', e instanceof Error ? e.message : 'Failed', 500);

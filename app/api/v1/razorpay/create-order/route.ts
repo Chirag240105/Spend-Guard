@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const order = await PaymentService.createOrder(
       body.merchantId,
       body.amount / 100, // store in rupees
-      body.currency
+      body.currency,
     );
 
     // Create Razorpay order if credentials available
@@ -42,14 +42,21 @@ export async function POST(req: NextRequest) {
       razorpayOrderId = `mock_order_${Date.now()}`;
     }
 
-    return NextResponse.json({
-      internalOrderId: order.id,
-      razorpayOrderId,
-      amount: body.amount,
-      currency: body.currency,
-      keyId: keyId ?? null,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        internalOrderId: order.id,
+        razorpayOrderId,
+        amount: body.amount,
+        currency: body.currency,
+        keyId: keyId ?? null,
+      },
+      { status: 201 },
+    );
   } catch (e) {
-    return apiError('ORDER_CREATE_FAILED', e instanceof Error ? e.message : 'Failed to create order', 500);
+    return apiError(
+      'ORDER_CREATE_FAILED',
+      e instanceof Error ? e.message : 'Failed to create order',
+      500,
+    );
   }
 }

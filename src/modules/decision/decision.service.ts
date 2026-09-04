@@ -17,7 +17,7 @@ export class DecisionService {
     reason: string,
     ruleResults: RuleEvaluation[],
     source: DecisionSource,
-    confidence?: number
+    confidence?: number,
   ): Promise<Decision> {
     const prisma = getPrismaClient();
 
@@ -51,10 +51,7 @@ export class DecisionService {
   /**
    * Get all decisions for a policy
    */
-  static async getDecisionsByPolicyId(
-    policyId: string,
-    limit: number = 50
-  ): Promise<Decision[]> {
+  static async getDecisionsByPolicyId(policyId: string, limit: number = 50): Promise<Decision[]> {
     const prisma = getPrismaClient();
     const decisions = await prisma.decision.findMany({
       where: { policyId },
@@ -81,30 +78,55 @@ export class DecisionService {
         acc[stat.decision as DecisionType] = stat._count;
         return acc;
       },
-      { ALLOW: 0, HOLD: 0, BLOCK: 0 } as Record<DecisionType, number>
+      { ALLOW: 0, HOLD: 0, BLOCK: 0 } as Record<DecisionType, number>,
     );
   }
 
-  static async resolveDecision(transactionId: string, outcome: 'ALLOW' | 'BLOCK'): Promise<Decision> {
+  static async resolveDecision(
+    transactionId: string,
+    outcome: 'ALLOW' | 'BLOCK',
+  ): Promise<Decision> {
     const prisma = getPrismaClient();
     const existing = await prisma.decision.findUnique({ where: { transactionId } });
     if (!existing) throw new Error('Decision not found');
-    if (existing.decision !== 'HOLD') throw new Error(`Only HOLD decisions can be resolved. Current decision: ${existing.decision}`);
+    if (existing.decision !== 'HOLD')
+      throw new Error(
+        `Only HOLD decisions can be resolved. Current decision: ${existing.decision}`,
+      );
     const result = await prisma.decision.update({
       where: { transactionId },
-      data: { decision: outcome, source: 'HUMAN_OVERRIDE', reason: `Human reviewer ${outcome === 'ALLOW' ? 'approved' : 'rejected'} this transaction.`, },
+      data: {
+        decision: outcome,
+        source: 'HUMAN_OVERRIDE',
+        reason: `Human reviewer ${outcome === 'ALLOW' ? 'approved' : 'rejected'} this transaction.`,
+      },
     });
     return this.mapDatabaseDecisionToDomain(result);
   }
 
-  static async listDecisions(options: { skip?: number; take?: number; decision?: DecisionType } = {}) {
+  static async listDecisions(
+    options: { skip?: number; take?: number; decision?: DecisionType } = {},
+  ) {
     const prisma = getPrismaClient();
     const where = options.decision ? { decision: options.decision } : undefined;
     const [items, total] = await Promise.all([
-      prisma.decision.findMany({ where, orderBy: { createdAt: 'desc' }, skip: options.skip, take: options.take, include: { transaction: true, policy: true } }),
+      prisma.decision.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: options.skip,
+        take: options.take,
+        include: { transaction: true, policy: true },
+      }),
       prisma.decision.count({ where }),
     ]);
-    return { items: items.map((item) => ({ decision: this.mapDatabaseDecisionToDomain(item), transaction: item.transaction, policy: item.policy })), total };
+    return {
+      items: items.map((item) => ({
+        decision: this.mapDatabaseDecisionToDomain(item),
+        transaction: item.transaction,
+        policy: item.policy,
+      })),
+      total,
+    };
   }
 
   private static mapDatabaseDecisionToDomain(decision: PrismaDecision): Decision {

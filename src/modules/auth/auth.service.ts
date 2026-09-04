@@ -7,7 +7,7 @@ const JWT_EXPIRES_IN = '8h';
 const COOKIE_NAME = 'sg_token';
 
 export interface JwtPayload {
-  sub: string;   // user id
+  sub: string; // user id
   email: string;
   name: string;
   role: string;
@@ -16,7 +16,10 @@ export interface JwtPayload {
 }
 
 export class AuthService {
-  static async login(email: string, password: string): Promise<{ token: string; user: PublicUser }> {
+  static async login(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; user: PublicUser }> {
     const prisma = getPrismaClient();
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
     if (!user) throw new AuthError('Invalid email or password');
@@ -24,7 +27,12 @@ export class AuthService {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new AuthError('Invalid email or password');
 
-    const payload: JwtPayload = { sub: user.id, email: user.email, name: user.name, role: user.role };
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
     return { token, user: toPublicUser(user) };
   }
@@ -43,7 +51,12 @@ export class AuthService {
     return user ? toPublicUser(user) : null;
   }
 
-  static async createUser(email: string, name: string, password: string, role = 'REVIEWER'): Promise<PublicUser> {
+  static async createUser(
+    email: string,
+    name: string,
+    password: string,
+    role = 'REVIEWER',
+  ): Promise<PublicUser> {
     const prisma = getPrismaClient();
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
@@ -53,19 +66,44 @@ export class AuthService {
   }
 
   static cookieName = COOKIE_NAME;
-  static cookieOpts = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax' as const, path: '/', maxAge: 8 * 60 * 60 };
+  static cookieOpts = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 8 * 60 * 60,
+  };
 }
 
 export class AuthError extends Error {
-  constructor(message: string) { super(message); this.name = 'AuthError'; }
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthError';
+  }
 }
 
 export interface PublicUser {
-  id: string; email: string; name: string; role: string; createdAt: Date;
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: Date;
 }
 
-function toPublicUser(user: { id: string; email: string; name: string; role: string; createdAt: Date }): PublicUser {
-  return { id: user.id, email: user.email, name: user.name, role: user.role, createdAt: user.createdAt };
+function toPublicUser(user: {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  createdAt: Date;
+}): PublicUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    createdAt: user.createdAt,
+  };
 }
 
 /** Extract and verify JWT from Next.js request cookies/headers */
@@ -82,11 +120,16 @@ export function getAuthFromRequest(req: import('next/server').NextRequest): JwtP
 }
 
 /** Middleware helper — returns 401 JSON response if not authenticated */
-export function requireAuth(req: import('next/server').NextRequest): import('next/server').NextResponse | null {
+export function requireAuth(
+  req: import('next/server').NextRequest,
+): import('next/server').NextResponse | null {
   const auth = getAuthFromRequest(req);
   if (!auth) {
     const { NextResponse } = require('next/server') as typeof import('next/server');
-    return NextResponse.json({ error: 'Unauthenticated', code: 'UNAUTHENTICATED' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Unauthenticated', code: 'UNAUTHENTICATED' },
+      { status: 401 },
+    );
   }
   return null;
 }

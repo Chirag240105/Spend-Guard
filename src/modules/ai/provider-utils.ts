@@ -15,5 +15,7 @@ export function parseCompiledPolicy(responseText: string, provider: string): Com
 
 export async function getErrorMessage(response: Response): Promise<string> {
   const detail = await response.text();
-  return detail ? `${response.status} ${response.statusText}: ${detail}` : `${response.status} ${response.statusText}`;
+  return detail
+    ? `${response.status} ${response.statusText}: ${detail}`
+    : `${response.status} ${response.statusText}`;
 }
