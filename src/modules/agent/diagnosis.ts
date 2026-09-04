@@ -1,6 +1,97 @@
+import { z } from 'zod';
 import { getPaymentProvider, RazorpayAdapter } from '../providers/payment-provider';
 import { getRedisClient } from '../../infrastructure/redis';
 import { getPrismaClient } from '../../infrastructure/database';
+
+export const AgentDiagnosisSchema = z.object({
+  failure_category: z.enum([
+    'TRANSIENT_NETWORK',
+    'GATEWAY_TIMEOUT',
+    'BANK_TEMPORARY_FAILURE',
+    'INSUFFICIENT_FUNDS',
+    'CARD_DECLINED',
+    'UNKNOWN',
+  ]),
+  confidence: z.number(),
+  risk_level: z.enum(['LOW', 'MEDIUM', 'HIGH']),
+  recommended_action: z.enum(['AUTO_RETRY', 'DELAYED_RETRY', 'HUMAN_REVIEW', 'DO_NOT_RETRY']),
+  retry_after_seconds: z.number(),
+  reason: z.string(),
+});
+
+export type AgentDiagnosis = z.infer<typeof AgentDiagnosisSchema>;
+
+export function humanReviewDiagnosis(reason: string): AgentDiagnosis {
+  return {
+    failure_category: 'UNKNOWN',
+    confidence: 0,
+    risk_level: 'HIGH',
+    recommended_action: 'HUMAN_REVIEW',
+    retry_after_seconds: 0,
+    reason,
+  };
+}
+
+export interface AIProvider {
+  diagnose(context: { gatewayErrorCode?: string; paymentId?: string; retryCount?: number }): Promise<AgentDiagnosis>;
+}
+
+export class MockDiagnosisProvider implements AIProvider {
+  async diagnose(context: { gatewayErrorCode?: string; paymentId?: string; retryCount?: number }): Promise<AgentDiagnosis> {
+    const code = context.gatewayErrorCode ?? 'UNKNOWN';
+    if (code === 'TRANSIENT_NETWORK') {
+      return {
+        failure_category: 'TRANSIENT_NETWORK',
+        confidence: 0.95,
+        risk_level: 'LOW',
+        recommended_action: 'AUTO_RETRY',
+        retry_after_seconds: 5,
+        reason: 'Network timeout during transaction processing; safe for immediate retry',
+      };
+    }
+    if (code === 'GATEWAY_TIMEOUT') {
+      return {
+        failure_category: 'GATEWAY_TIMEOUT',
+        confidence: 0.85,
+        risk_level: 'LOW',
+        recommended_action: 'DELAYED_RETRY',
+        retry_after_seconds: 30,
+        reason: 'Payment gateway timeout; delayed retry scheduled',
+      };
+    }
+    if (code === 'BANK_TEMPORARY_FAILURE') {
+      return {
+        failure_category: 'BANK_TEMPORARY_FAILURE',
+        confidence: 0.85,
+        risk_level: 'LOW',
+        recommended_action: 'DELAYED_RETRY',
+        retry_after_seconds: 60,
+        reason: 'Issuing bank temporary unavailability',
+      };
+    }
+    if (code === 'INSUFFICIENT_FUNDS') {
+      return {
+        failure_category: 'INSUFFICIENT_FUNDS',
+        confidence: 0.99,
+        risk_level: 'HIGH',
+        recommended_action: 'DO_NOT_RETRY',
+        retry_after_seconds: 0,
+        reason: 'Customer account has insufficient funds; do not retry automatically',
+      };
+    }
+    if (code === 'CARD_DECLINED') {
+      return {
+        failure_category: 'CARD_DECLINED',
+        confidence: 0.90,
+        risk_level: 'HIGH',
+        recommended_action: 'HUMAN_REVIEW',
+        retry_after_seconds: 0,
+        reason: 'Card declined by issuer; requires user investigation',
+      };
+    }
+    return humanReviewDiagnosis('Unrecognized failure mode; routed to human review');
+  }
+}
 
 export interface DiagnosisReport {
   healthy: boolean;

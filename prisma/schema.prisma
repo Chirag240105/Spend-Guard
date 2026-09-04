@@ -260,6 +260,17 @@ model WebhookEvent {
   @@unique([merchantId, dedupeKey])
   @@index([deliveryStatus, nextRetryAt])
 }
+// ── Authentication ──────────────────────────────────────────────────────────
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("REVIEWER") // REVIEWER | ADMIN
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Outbox {
   id          String   @id @default(cuid())
   eventType   String   // "payment.failed", "transaction.evaluated", etc.

@@ -1,19 +1,10 @@
-// Mock AI provider for development/testing
 import { Categories, CompiledPolicy, Limits, Merchants } from '../policy/policy.types';
 
-/**
- * Mock Claude provider - generates plausible policies from keywords
- * Used when ANTHROPIC_API_KEY is not set or in testing
- */
-export async function mockCompilePolicy(
-  naturalLanguage: string
-): Promise<CompiledPolicy> {
-  // Simulate processing delay
+/** Deterministic local compiler used when a live AI provider is unavailable. */
+export async function mockCompilePolicy(naturalLanguage: string): Promise<CompiledPolicy> {
   await new Promise((resolve) => setTimeout(resolve, 500));
-
   const text = naturalLanguage.toLowerCase();
-
-  const policy: CompiledPolicy = {
+  return {
     name: extractPolicyName(naturalLanguage),
     limits: extractLimits(text),
     categories: extractCategories(text),
@@ -21,157 +12,47 @@ export async function mockCompilePolicy(
     timeWindow: extractTimeWindow(text),
     approval: extractApproval(text),
   };
-
-  return policy;
 }
 
-function extractPolicyName(text: string): string {
-  // Try to extract policy name from first sentence
-  const match = text.match(/^([^.!?]+)/);
-  if (match) {
-    const name = match[1].trim();
-    if (name.length < 100) return name;
-  }
-  return 'Agent Spending Policy';
-}
+function extractPolicyName(text: string) { return text.match(/^([^.!?]+)/)?.[1].trim().slice(0, 99) || 'Agent Spending Policy'; }
+function parseAmount(value: string) { return parseInt(value.replace(/[^0-9.]/g, ''), 10); }
 
 function extractLimits(text: string): Limits {
   const limits: Limits = {};
-
-  // Extract per-transaction limit
-  const txMatch = text.match(/(?:(?:per\s+)?transaction|at\s+once)[:\s]+[₹$]?(\d+(?:,\d+)?)/i);
-  if (txMatch) {
-    limits.perTransaction = parseAmount(txMatch[1]);
-  }
-
-  // Extract daily limit
-  const dailyMatch = text.match(/(?:daily|per\s+day)[:\s]+[₹$]?(\d+(?:,\d+)?)/i);
-  if (dailyMatch) {
-    limits.daily = parseAmount(dailyMatch[1]);
-  }
-
-  // Extract weekly limit
-  const weeklyMatch = text.match(/(?:weekly|per\s+week)[:\s]+[₹$]?(\d+(?:,\d+)?)/i);
-  if (weeklyMatch) {
-    limits.weekly = parseAmount(weeklyMatch[1]);
-  }
-
-  // Extract monthly limit
-  const monthlyMatch = text.match(/(?:monthly|per\s+month)[:\s]+[₹$]?(\d+(?:,\d+)?)/i);
-  if (monthlyMatch) {
-    limits.monthly = parseAmount(monthlyMatch[1]);
-  }
-
+  // Treat a currency marker as generic non-numeric text: this supports INR,
+  // USD, and strings that have passed through a lossy text encoding.
+  const value = '(\\d+(?:,\\d+)?)';
+  const currency = '[^0-9]{0,4}';
+  const patterns: Array<[keyof Limits, RegExp]> = [
+    ['perTransaction', new RegExp(`(?:never\\s+)?spend\\s+more\\s+than\\s*${currency}${value}\\s*(?:at\\s+once|per\\s+transaction)|(?:per\\s+transaction|at\\s+once)\\s*[:\\s]*${currency}${value}`, 'i')],
+    ['daily', new RegExp(`(?:up\\s+to\\s+)?${currency}${value}\\s*(?:per\\s+day|daily)`, 'i')],
+    ['weekly', new RegExp(`(?:up\\s+to\\s+)?${currency}${value}\\s*(?:per\\s+week|weekly)`, 'i')],
+    ['monthly', new RegExp(`(?:up\\s+to\\s+)?${currency}${value}\\s*(?:per\\s+month|monthly)`, 'i')],
+  ];
+  for (const [field, pattern] of patterns) { const match = pattern.exec(text); if (match) limits[field] = parseAmount(match[1] ?? match[2]); }
   return limits;
 }
 
 function extractCategories(text: string): Categories {
-  const categories: Categories = {
-    allowed: [],
-    blocked: [],
-  };
-
-  // Categories that might be allowed
-  const allowedKeywords = [
-    'groceries?',
-    'food',
-    'school',
-    'education',
-    'supplies?',
-    'pharmacy',
-    'medicine',
-    'books?',
-    'utilities?',
-    'transport',
-    'travel',
-  ];
-
-  // Categories that should be blocked
-  const blockedKeywords = [
-    'gaming',
-    'game',
-    'entertainment',
-    'movies?',
-    'alcohol',
-    'tobacco',
-    'luxury',
-    'gambling',
-  ];
-
-  // Extract allowed
-  for (const keyword of allowedKeywords) {
-    const regex = new RegExp(
-      `(?:can|allow|spend|budget)\\s+(?:on\\s+)?(?:for\\s+)?${keyword}`,
-      'i'
-    );
-    if (regex.test(text)) {
-      (categories.allowed ??= []).push(keyword.replace('?', '').replace(/s$/, ''));
-    }
-  }
-
-  // Extract blocked
-  for (const keyword of blockedKeywords) {
-    const regex = new RegExp(
-      `(?:block|no|never|don't allow)\\s+(?:on\\s+)?${keyword}`,
-      'i'
-    );
-    if (regex.test(text)) {
-      (categories.blocked ??= []).push(keyword.replace('?', ''));
-    }
-  }
-
+  const categories: Categories = { allowed: [], blocked: [] };
+  const allowed = ['groceries?', 'food', 'school', 'education', 'supplies?', 'pharmacy', 'medicine', 'books?', 'utilities?', 'transport', 'travel'];
+  const blocked = ['gaming', 'game', 'entertainment', 'movies?', 'alcohol', 'tobacco', 'luxury', 'gambling'];
+  for (const keyword of allowed) if (new RegExp(`(?:can|allow|spend|budget)\\s+(?:on\\s+)?(?:for\\s+)?${keyword}`, 'i').test(text)) categories.allowed?.push(keyword.replace('?', '').replace(/s$/, ''));
+  for (const keyword of blocked) if (new RegExp(`(?:block|no|never|don't allow)\\s+(?:on\\s+)?${keyword}`, 'i').test(text)) categories.blocked?.push(keyword.replace('?', ''));
   return categories;
 }
 
 function extractMerchants(text: string): Merchants | undefined {
-  const merchants: Merchants = {};
-
-  // Look for merchant names
-  const merchantMatches = text.match(/merchant[s]?\s*[:\s]+([\w\s,]+?)(?:\.|,|$)/i);
-  if (merchantMatches) {
-    const names = merchantMatches[1]
-      .split(',')
-      .map(normalizeMerchantName)
-      .filter((m) => m.length > 0);
-    merchants.allowed = names;
-  }
-
-  return Object.keys(merchants).length > 0 ? merchants : undefined;
+  const match = text.match(/merchant[s]?\s*[:\s]+([\w\s,]+?)(?:\.|,|$)/i);
+  if (!match) return undefined;
+  return { allowed: match[1].split(',').map(normalizeMerchantName).filter(Boolean) };
 }
-
 function extractTimeWindow(text: string) {
-  const timeMatch = text.match(/(\d{1,2}):(\d{2})\s*(?:am|pm|AM|PM)?\s*-\s*(\d{1,2}):(\d{2})\s*(?:am|pm|AM|PM)?/);
-  if (timeMatch) {
-    return {
-      start: `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`,
-      end: `${timeMatch[3].padStart(2, '0')}:${timeMatch[4]}`,
-      timezone: 'UTC',
-    };
-  }
-  return undefined;
+  const match = text.match(/(\d{1,2}):(\d{2})\s*(?:am|pm)?\s*-\s*(\d{1,2}):(\d{2})\s*(?:am|pm)?/i);
+  return match ? { start: `${match[1].padStart(2, '0')}:${match[2]}`, end: `${match[3].padStart(2, '0')}:${match[4]}`, timezone: 'UTC' } : undefined;
 }
-
 function extractApproval(text: string) {
-  const approvalMatch = text.match(
-    /(?:approval|approve|approval required|needs? approval)\s+(?:above|above\s+|for\s+|at\s+)[₹$]?(\d+(?:,\d+)?)/i
-  );
-  if (approvalMatch) {
-    return {
-      aboveAmount: parseAmount(approvalMatch[1]),
-    };
-  }
-  return undefined;
+  const match = /(?:anything\s+)?above\s+[^0-9]{0,4}(\d+(?:,\d+)?)(?:\s+needs?(?:\s+my)?\s+approval|\s+approval)?|(?:approval|approve|approval required|needs? approval)\s+(?:above|for|at)\s*[^0-9]{0,4}(\d+(?:,\d+)?)/i.exec(text);
+  return match ? { aboveAmount: parseAmount(match[1] ?? match[2]) } : undefined;
 }
-
-function parseAmount(amountStr: string): number {
-  // Accept common INR/USD representations while retaining the number-only policy shape.
-  return parseInt(amountStr.replace(/[^0-9.]/g, ''), 10);
-}
-
-function normalizeMerchantName(value: string): string {
-  return value
-    .replace(/^(at|from|with)\s+/i, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
+function normalizeMerchantName(value: string) { return value.replace(/^(at|from|with)\s+/i, '').replace(/\s+/g, ' ').trim().replace(/\b\w/g, (letter) => letter.toUpperCase()); }

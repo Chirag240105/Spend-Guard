@@ -1,3 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'; import { z } from 'zod'; import { requireApiKey } from '@/src/infrastructure/api'; import { apiError } from '@/src/infrastructure/http'; import { beginIdempotency, completeIdempotency } from '@/src/modules/idempotency/idempotency.service'; import { PaymentService } from '@/src/modules/payments/payment.service';
-const bodySchema=z.object({orderId:z.string().min(1),provider:z.string().default('mock'),scenario:z.string().optional()});
-export async function POST(req:NextRequest){const denied=requireApiKey(req);if(denied)return denied;const key=req.headers.get('idempotency-key');if(!key)return apiError('IDEMPOTENCY_KEY_REQUIRED','Idempotency-Key is required');try{const body=bodySchema.parse(await req.json()),idem=await beginIdempotency(key,'POST:/v1/payments',body);if(idem.kind==='existing')return NextResponse.json(idem.record.responseBody??{code:'PROCESSING',message:'Request is processing'},{status:idem.record.status==='COMPLETED'?200:409});const payment=await PaymentService.createPayment(body.orderId,body.provider,body.scenario);const response={payment};await completeIdempotency(idem.record.id,response);return NextResponse.json(response,{status:201});}catch(e){return apiError('PAYMENT_CREATE_FAILED',e instanceof Error?e.message:'Invalid payment');}}
+import { NextRequest, NextResponse } from 'next/server';
+import { requireApiKey } from '@/src/infrastructure/api';
+import { apiError } from '@/src/infrastructure/http';
+import { pagination } from '@/src/infrastructure/api';
+import { getPrismaClient } from '@/src/infrastructure/database';
+
+export async function GET(req: NextRequest) {
+  const denied = requireApiKey(req);
+  if (denied) return denied;
+  try {
+    const { limit, skip } = pagination(req.nextUrl.searchParams, 25, 100);
+    const status = req.nextUrl.searchParams.get('status') ?? undefined;
+    const prisma = getPrismaClient();
+    const where = status ? { status: status as never } : undefined;
+    const [items, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          order: true,
+          attempts: { orderBy: { createdAt: 'desc' } },
+          agentDecisions: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: { approval: true },
+          },
+        },
+      }),
+      prisma.payment.count({ where }),
+    ]);
+    return NextResponse.json({ items, total, limit, skip });
+  } catch (e) {
+    return apiError('PAYMENTS_FAILED', e instanceof Error ? e.message : 'Failed to list payments', 500);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const denied = requireApiKey(req);
+  if (denied) return denied;
+  try {
+    const body = await req.json();
+    const { PaymentService } = await import('@/src/modules/payments/payment.service');
+    const { MockPaymentProvider } = await import('@/src/modules/providers/payment-provider');
+    const order = await PaymentService.createOrder(body.merchantId ?? 'demo-merchant', body.amount ?? 100, body.currency ?? 'INR');
+    const result = await PaymentService.createPayment(order.id, body.provider ?? 'mock', body.scenario, new MockPaymentProvider());
+    return NextResponse.json({ result }, { status: 201 });
+  } catch (e) {
+    return apiError('PAYMENT_CREATE_FAILED', e instanceof Error ? e.message : 'Failed', 500);
+  }
+}

@@ -174,54 +174,43 @@ export function evaluateTransaction(
   }
 
   // Determine final decision
+  // Rules:
+  // BLOCK  — blocked category, blocked merchant, OR exceeded daily/weekly/monthly limit
+  // HOLD   — per-transaction limit exceeded (human can still approve), approval threshold, unknown category, time window
+  // ALLOW  — all checks pass
   let decision: DecisionType = 'ALLOW';
 
-  // Check if any hard block rule failed
-  const blockedRules = [
-    'Blocked category check',
-    'Blocked merchant check',
-    'Per-transaction limit: ₹' + policy.limits.perTransaction,
-    'Daily limit: ₹' + policy.limits.daily,
-    'Weekly limit: ₹' + policy.limits.weekly,
-    'Monthly limit: ₹' + policy.limits.monthly,
-  ];
-
-  const hasHardBlock = rules.some(
+  const hasBlockedCategory = rules.some(
+    (r) => !r.passed && r.rule === 'Blocked category check'
+  );
+  const hasBlockedMerchant = rules.some(
+    (r) => !r.passed && r.rule === 'Blocked merchant check'
+  );
+  const hasPeriodLimitFailure = rules.some(
     (r) =>
       !r.passed &&
-      blockedRules.some((br) => r.rule.startsWith(br.split(':')[0]))
+      (r.rule.startsWith('Daily limit') ||
+        r.rule.startsWith('Weekly limit') ||
+        r.rule.startsWith('Monthly limit'))
+  );
+  // Per-transaction over-limit → HOLD if approval threshold is configured, else BLOCK
+  const hasPerTxLimitFailure = rules.some(
+    (r) => !r.passed && r.rule.startsWith('Per-transaction limit')
+  );
+  const hasUnknownCategory = rules.some(
+    (r) => !r.passed && r.rule === 'Allowed category check'
+  );
+  const hasTimeWindowFailure = rules.some(
+    (r) => !r.passed && r.rule.startsWith('Time window')
   );
 
-  if (hasHardBlock) {
+  if (hasBlockedCategory || hasBlockedMerchant || hasPeriodLimitFailure) {
     decision = 'BLOCK';
-  } else if (!policy.categories.allowed && !policy.categories.blocked) {
-    // No category restrictions
-    if (requiresApproval) {
-      decision = 'HOLD';
-    }
   } else if (
-    !rules.every((r) => r.passed) ||
-    requiresApproval
-  ) {
-    // Some rule failed or approval required
-    if (rules.some((r) => !r.passed && (r.rule.includes('Allowed category') || r.rule.startsWith('Time window')))) {
-      decision = 'HOLD'; // Unknown category
-    } else if (requiresApproval) {
-      decision = 'HOLD';
-    } else {
-      decision = 'ALLOW';
-    }
-  }
-
-  // Final validation: must have all non-optional rules pass for ALLOW
-  const criticalRulesFailed = rules.filter(
-    (r) => !r.passed && (r.rule.includes('category') || r.rule.includes('limit'))
-  );
-
-  if (
-    decision === 'ALLOW' &&
-    criticalRulesFailed.length > 0 &&
-    !requiresApproval
+    requiresApproval ||
+    hasPerTxLimitFailure ||
+    hasUnknownCategory ||
+    hasTimeWindowFailure
   ) {
     decision = 'HOLD';
   }

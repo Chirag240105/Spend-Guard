@@ -1,4 +1,5 @@
 import { getPrismaClient } from '../../infrastructure/database';
+import { Prisma } from '@prisma/client';
 
 export interface OutboxEntryInput {
   eventType: string;
@@ -12,7 +13,7 @@ export class OutboxService {
     const row = await prisma.outbox.create({
       data: {
         eventType: input.eventType,
-        payload: input.payload,
+        payload: input.payload as Prisma.InputJsonValue,
         aggregateId: input.aggregateId,
         status: 'pending',
       },

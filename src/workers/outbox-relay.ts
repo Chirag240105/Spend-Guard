@@ -1,8 +1,7 @@
 import 'dotenv/config';
 import { OutboxService } from '../modules/outbox/outbox.service';
-import { enqueueJob, getQueueLength } from '../infrastructure/job-queue';
+import { enqueueJob } from '../infrastructure/job-queue';
 import { getRedisClient } from '../infrastructure/redis';
-import { getPrismaClient } from '../infrastructure/database';
 
 const POLL_INTERVAL_MS = 2000;
 const BATCH_SIZE = 100;

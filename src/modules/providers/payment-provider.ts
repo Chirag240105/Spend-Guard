@@ -14,11 +14,18 @@ export interface PaymentRequest {
   notes?: Record<string, string>;
 }
 
+export interface PaymentExecutionResult {
+  success: boolean;
+  errorCode?: string;
+  error?: string;
+}
+
 export interface PaymentProvider {
   name: string;
   createOrder(request: PaymentRequest): Promise<{ orderId: string; amount: number }>;
   capturePayment(paymentId: string, amount: number): Promise<PaymentResult>;
   verifyWebhook(payload: unknown, signature: string): boolean;
+  execute(params: { paymentId: string; scenario?: string }): Promise<PaymentExecutionResult>;
 }
 
 /** Razorpay Test Mode Adapter */
@@ -94,9 +101,13 @@ export class RazorpayAdapter implements PaymentProvider {
     };
   }
 
-  verifyWebhook(_payload: unknown, _signature: string): boolean {
+  verifyWebhook(): boolean {
     // TODO: Implement HMAC-SHA256 verification in production
     return true;
+  }
+
+  async execute(): Promise<PaymentExecutionResult> {
+    return { success: true };
   }
 }
 
@@ -106,11 +117,26 @@ export class MockPaymentProvider implements PaymentProvider {
   async createOrder(request: PaymentRequest): Promise<{ orderId: string; amount: number }> {
     return { orderId: `mock_order_${Date.now()}`, amount: request.amount };
   }
-  async capturePayment(_paymentId: string, _amount: number): Promise<PaymentResult> {
+  async capturePayment(): Promise<PaymentResult> {
     return { success: true, status: 'captured', paymentId: `mock_pay_${Date.now()}` };
   }
   verifyWebhook(): boolean {
     return true;
+  }
+  async execute(params: { paymentId: string; scenario?: string }): Promise<PaymentExecutionResult> {
+    if (params.scenario === 'TRANSIENT_NETWORK') {
+      return { success: false, errorCode: 'TRANSIENT_NETWORK', error: 'Network timeout during gateway request' };
+    }
+    if (params.scenario === 'INSUFFICIENT_FUNDS') {
+      return { success: false, errorCode: 'INSUFFICIENT_FUNDS', error: 'Customer account has insufficient funds' };
+    }
+    if (params.scenario === 'GATEWAY_TIMEOUT') {
+      return { success: false, errorCode: 'GATEWAY_TIMEOUT', error: 'Payment gateway timeout' };
+    }
+    if (params.scenario === 'FAIL') {
+      return { success: false, errorCode: 'UNKNOWN_FAILURE', error: 'Transaction failed' };
+    }
+    return { success: true };
   }
 }
 

@@ -46,8 +46,13 @@ describe('Transaction Evaluator', () => {
   });
 
   it('should BLOCK transaction over per-transaction limit', () => {
+    // Policy without approval threshold — pure per-transaction block
+    const blockPolicy: CompiledPolicy = {
+      ...policy,
+      approval: undefined,
+    };
     const tx = { ...baseTransaction, amount: 600 };
-    const result = evaluateTransaction(tx, policy, spendingContext);
+    const result = evaluateTransaction(tx, blockPolicy, spendingContext);
     expect(result.decision).toBe('BLOCK');
   });
 
