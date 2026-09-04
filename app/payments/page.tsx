@@ -3,6 +3,15 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PageState } from '@/src/components/page-state';
 
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, callback: (data: { error?: { code?: string; description?: string; reason?: string } }) => void) => void;
+    };
+  }
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 const money = (n: number | string, cur = 'INR') =>
@@ -65,6 +74,15 @@ export default function PaymentsPage() {
   const [busy, setBusy] = useState(false);
   const [scenario, setScenario] = useState<Scenario>('GATEWAY_TIMEOUT');
   const [amount, setAmount] = useState('4999');
+  const [checkoutMessage, setCheckoutMessage] = useState('');
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => script.remove();
+  }, []);
 
   const load = async () => {
     try {
@@ -79,7 +97,8 @@ export default function PaymentsPage() {
   };
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function triggerPayment() {
@@ -96,6 +115,61 @@ export default function PaymentsPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to trigger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openCheckout() {
+    setBusy(true);
+    setCheckoutMessage('');
+    try {
+      const internalKey = `checkout-${crypto.randomUUID()}`;
+      const orderResponse = await fetch('/api/v1/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': internalKey },
+        body: JSON.stringify({ merchantId: 'demo-merchant', amount: Number(amount) * 100, currency: 'INR' }),
+      });
+      const order = await orderResponse.json();
+      if (!orderResponse.ok) {
+        throw new Error(order.message ?? order.error ?? `Could not create order (${orderResponse.status})`);
+      }
+      if (!window.Razorpay || !order.keyId) {
+        setCheckoutMessage('Razorpay keys are not configured; use the demo trigger in mock mode.');
+        return;
+      }
+      const checkout = new window.Razorpay({
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'SpendGuard',
+        order_id: order.razorpayOrderId,
+        handler: async (response: Record<string, string>) => {
+          const verified = await fetch('/api/v1/razorpay/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
+            body: JSON.stringify({ ...response, internalOrderId: order.internalOrderId }),
+          });
+          if (!verified.ok) {
+            const details = await verified.json().catch(() => ({}));
+            throw new Error(details.message ?? details.error ?? 'Payment verification failed');
+          }
+          setCheckoutMessage('Payment captured successfully.');
+          await load();
+        },
+        modal: {
+          ondismiss: () => setCheckoutMessage('Checkout was closed before payment was completed.'),
+        },
+      });
+      checkout.on('payment.failed', (failure) => {
+        const details = failure.error;
+        setCheckoutMessage(
+          `Razorpay declined the payment${details?.code ? ` (${details.code})` : ''}: ${details?.description ?? details?.reason ?? 'the test payment failed'}`,
+        );
+      });
+      checkout.open();
+    } catch (e) {
+      setCheckoutMessage(e instanceof Error ? e.message : 'Checkout failed');
     } finally {
       setBusy(false);
     }
@@ -218,6 +292,16 @@ export default function PaymentsPage() {
             {busy ? 'Running pipeline…' : 'Trigger Payment'}
           </button>
           <button
+            onClick={openCheckout}
+            disabled={busy}
+            style={{
+              background: '#f59e0b', color: '#111827', border: 'none', borderRadius: 8,
+              padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: busy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Open Razorpay Checkout
+          </button>
+          <button
             onClick={load}
             style={{
               background: 'transparent',
@@ -233,6 +317,7 @@ export default function PaymentsPage() {
           </button>
         </div>
         {error && <p style={{ marginTop: 10, fontSize: 12, color: '#fca5a5' }}>{error}</p>}
+        {checkoutMessage && <p style={{ marginTop: 10, fontSize: 12, color: '#fde68a' }}>{checkoutMessage}</p>}
       </div>
 
       {/* Payments table */}

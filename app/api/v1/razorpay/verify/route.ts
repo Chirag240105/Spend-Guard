@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
 import { requireApiKey } from '@/src/infrastructure/api';
 import { apiError } from '@/src/infrastructure/http';
 import { PaymentService } from '@/src/modules/payments/payment.service';
 import { getPrismaClient } from '@/src/infrastructure/database';
+import { beginIdempotency, completeIdempotency } from '@/src/modules/idempotency/idempotency.service';
 import { z } from 'zod';
+import { getPaymentProvider } from '@/src/modules/providers/payment-provider';
 
 const schema = z.object({
   razorpay_order_id: z.string(),
@@ -18,64 +19,35 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
   try {
     const body = schema.parse(await req.json());
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    // Signature verification (skip in mock mode)
-    if (keySecret) {
-      const expectedSig = createHmac('sha256', keySecret)
-        .update(`${body.razorpay_order_id}|${body.razorpay_payment_id}`)
-        .digest('hex');
-      if (expectedSig !== body.razorpay_signature) {
-        return apiError('INVALID_SIGNATURE', 'Razorpay signature verification failed', 400);
-      }
+    const key = req.headers.get('idempotency-key');
+    if (!key) return apiError('IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required');
+    const idem = await beginIdempotency(key, 'POST:/v1/razorpay/verify', body);
+    if (idem.kind === 'existing') {
+      return NextResponse.json(idem.record.responseBody ?? { code: 'PROCESSING' }, {
+        status: idem.record.status === 'COMPLETED' ? 200 : 409,
+      });
+    }
+    const provider = getPaymentProvider();
+    if (!provider.verifyPaymentSignature({
+      orderId: body.razorpay_order_id,
+      paymentId: body.razorpay_payment_id,
+      signature: body.razorpay_signature,
+    })) {
+      return apiError('INVALID_SIGNATURE', 'Razorpay signature verification failed', 400);
     }
 
-    // Attach to internal order → create payment record → mark SUCCESS
-    const payment = await getPrismaClient().payment.create({
-      data: {
-        orderId: body.internalOrderId,
-        provider: keySecret ? 'razorpay' : 'mock',
-        status: 'CREATED',
-      },
-    });
-
-    // Directly mark as SUCCESS (signature verified = payment captured by Razorpay)
-    await PaymentService.transition(payment.id, 'ATTEMPTED');
-    await getPrismaClient().$transaction(async (tx) => {
-      await tx.paymentAttempt.create({
-        data: { paymentId: payment.id, attemptNumber: 1, outcome: 'SUCCESS' },
-      });
-      const order = await tx.order.findUniqueOrThrow({ where: { id: body.internalOrderId } });
-      const merchantAccount = await tx.ledgerAccount.upsert({
-        where: { ownerType_ownerId: { ownerType: 'MERCHANT', ownerId: order.merchantId } },
-        create: { ownerType: 'MERCHANT', ownerId: order.merchantId },
-        update: {},
-      });
-      const clearingAccount = await tx.ledgerAccount.upsert({
-        where: { ownerType_ownerId: { ownerType: 'CLEARING', ownerId: 'platform' } },
-        create: { ownerType: 'CLEARING', ownerId: 'platform' },
-        update: {},
-      });
-      const { postBalancedLedger } = await import('@/src/modules/ledger/ledger.service');
-      await postBalancedLedger(
-        tx,
-        payment.id,
-        order.amount,
-        clearingAccount.id,
-        merchantAccount.id,
-      );
-      await tx.payment.update({ where: { id: payment.id }, data: { status: 'SUCCESS' } });
-      await tx.outboxEvent.create({
-        data: {
-          aggregateType: 'payment',
-          aggregateId: payment.id,
-          eventType: 'payment.success',
-          payload: { paymentId: payment.id, razorpayPaymentId: body.razorpay_payment_id },
-        },
-      });
-    });
-
-    return NextResponse.json({ ok: true, paymentId: payment.id, status: 'SUCCESS' });
+    const order = await getPrismaClient().order.findUnique({ where: { id: body.internalOrderId } });
+    if (!order || (provider.mode === 'razorpay-test' && order.gatewayOrderId !== body.razorpay_order_id)) {
+      return apiError('ORDER_MISMATCH', 'Gateway order does not match the internal order', 400);
+    }
+    const payment = await PaymentService.recordCapturedPayment(
+      body.internalOrderId,
+      body.razorpay_payment_id,
+      provider.name.toLowerCase(),
+    );
+    const response = { ok: true, paymentId: payment.id, status: payment.status };
+    await completeIdempotency(idem.record.id, response);
+    return NextResponse.json(response);
   } catch (e) {
     return apiError('VERIFY_FAILED', e instanceof Error ? e.message : 'Verification failed', 500);
   }

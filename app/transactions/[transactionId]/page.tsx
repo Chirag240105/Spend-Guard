@@ -52,12 +52,12 @@ export default function TransactionDetail() {
         </div>
       )}
       <section className="mt-7 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <h2 className="text-xl font-bold">Decision breakdown</h2>
+        <h2 className="text-xl font-bold text-slate-100">Decision breakdown</h2>
         <p className="mt-3 text-slate-300">{decision.reason}</p>
         <div className="mt-5 space-y-3">
           {decision.ruleResults.map((r: any) => (
             <div key={r.rule} className="rounded-xl bg-slate-800/70 p-4">
-              <p className="font-semibold">{r.rule}</p>
+              <p className="font-semibold text-slate-200">{r.rule}</p>
               <p className={r.passed ? 'text-emerald-300' : 'text-amber-300'}>{r.message}</p>
             </div>
           ))}

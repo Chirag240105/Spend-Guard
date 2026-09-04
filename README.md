@@ -26,6 +26,7 @@ LedgerFlow is a Next.js/PostgreSQL payment-safety prototype. It retains the orig
 - Human approval endpoints under `/api/v1/approvals`.
 - Structured system-diagnosis report for database, Redis, AI-key presence, and provider selection.
 - Local mock payment provider and a Razorpay adapter boundary.
+- Razorpay Test Mode checkout, callback signature verification, and raw-body webhook verification with database deduplication.
 - Simple Redis-list outbox relay/worker scripts and a database outbox service.
 
 ### Static quality checks present
@@ -84,6 +85,7 @@ The existing application exposes legacy policy/transaction routes plus these Led
 | POST   | `/api/v1/payments`              | Create and attempt a payment; idempotency key required.    |
 | GET    | `/api/v1/payments/:id`          | Read payment details.                                      |
 | POST   | `/api/v1/payments/:id/retry`    | Request another payment attempt; idempotency key required. |
+| POST   | `/api/v1/razorpay/webhook`      | Verify and process Razorpay payment webhooks.              |
 | GET    | `/api/v1/approvals`             | List pending recovery approvals.                           |
 | POST   | `/api/v1/approvals/:id/approve` | Approve a recovery attempt.                                |
 | POST   | `/api/v1/approvals/:id/reject`  | Reject recovery.                                           |
@@ -104,9 +106,10 @@ GEMINI_MODEL=...
 XAI_API_KEY=...
 RAZORPAY_KEY_ID=...
 RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
 ```
 
-Do not commit `.env` or `.env.local`. The current system-diagnosis implementation checks `XAI_API_KEY` and `GEMINI_API_KEY`; the payment adapter switches to Razorpay only when both Razorpay credentials are present.
+Do not commit `.env` or `.env.local`. The payment adapter switches to Razorpay Test Mode only when all three Razorpay values are present. Configure Razorpay’s webhook URL as `/api/v1/razorpay/webhook` and use the same webhook secret in `RAZORPAY_WEBHOOK_SECRET`.
 
 ## CI/CD readiness
 
@@ -142,7 +145,7 @@ For integration CI, provision PostgreSQL and Redis, then run migrations and expl
 4. Repair the Vitest/esbuild configuration/path issue so `npm test` can execute.
 5. Remove lint warnings, then make lint warning-free before using `--max-warnings=0` in CI.
 6. Run and document database/Redis integration verification. The current outbox worker is a Redis-list relay, not a BullMQ consumer despite BullMQ being declared as a dependency.
-7. Implement Razorpay webhook HMAC verification before production use; the current adapter returns `true`.
+7. Add provider-specific webhook event handling and delivery retries before production use; signature verification and deduplication are now implemented.
 
 ## Operational status
 
@@ -157,7 +160,7 @@ For integration CI, provision PostgreSQL and Redis, then run migrations and expl
 
 - CI must not be configured to require passing tests/build until the blockers above are corrected.
 - Live AI diagnosis/recovery integration is incomplete and should not automatically move money.
-- Razorpay webhook validation is a placeholder.
+- Razorpay webhook delivery retries, merchant forwarding, and production observability are incomplete.
 - Webhook delivery, Prometheus metrics, load/concurrency testing, and deployment automation are incomplete.
 
 ## CI/CD

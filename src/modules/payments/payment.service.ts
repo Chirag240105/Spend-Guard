@@ -2,7 +2,7 @@ import { Prisma, type PaymentStatus } from '@prisma/client';
 import { getPrismaClient } from '@/src/infrastructure/database';
 import { assertPaymentTransition } from './state-machine';
 import { postBalancedLedger } from '../ledger/ledger.service';
-import { MockPaymentProvider, type PaymentProvider } from '../providers/payment-provider';
+import { getPaymentProvider, type PaymentProvider } from '../providers/payment-provider';
 
 export class PaymentService {
   static async createOrder(merchantId: string, amount: number, currency = 'INR') {
@@ -14,11 +14,53 @@ export class PaymentService {
     orderId: string,
     provider = 'mock',
     scenario?: string,
-    executor: PaymentProvider = new MockPaymentProvider(),
+    executor: PaymentProvider = getPaymentProvider(),
   ) {
     const prisma = getPrismaClient();
     const payment = await prisma.payment.create({ data: { orderId, provider } });
     return this.attempt(payment.id, scenario, executor);
+  }
+  static async attachGatewayOrder(orderId: string, gatewayOrderId: string) {
+    return getPrismaClient().order.update({ where: { id: orderId }, data: { gatewayOrderId } });
+  }
+
+  static async recordCapturedPayment(
+    orderId: string,
+    gatewayPaymentId: string,
+    provider: string,
+  ) {
+    const prisma = getPrismaClient();
+    const existing = await prisma.payment.findUnique({ where: { gatewayPaymentId } });
+    if (existing) return existing;
+    const payment = await prisma.payment.create({
+      data: { orderId, provider, gatewayPaymentId, status: 'CREATED' },
+    });
+    await this.transition(payment.id, 'ATTEMPTED');
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+      const merchantAccount = await tx.ledgerAccount.upsert({
+        where: { ownerType_ownerId: { ownerType: 'MERCHANT', ownerId: order.merchantId } },
+        create: { ownerType: 'MERCHANT', ownerId: order.merchantId }, update: {},
+      });
+      const clearingAccount = await tx.ledgerAccount.upsert({
+        where: { ownerType_ownerId: { ownerType: 'CLEARING', ownerId: 'platform' } },
+        create: { ownerType: 'CLEARING', ownerId: 'platform' }, update: {},
+      });
+      await tx.paymentAttempt.create({
+        data: { paymentId: payment.id, attemptNumber: 1, outcome: 'SUCCESS' },
+      });
+      await postBalancedLedger(tx, payment.id, order.amount, clearingAccount.id, merchantAccount.id);
+      const updated = await tx.payment.update({ where: { id: payment.id }, data: { status: 'SUCCESS' } });
+      await tx.outboxEvent.create({
+        data: {
+          aggregateType: 'payment',
+          aggregateId: payment.id,
+          eventType: 'payment.success',
+          payload: { paymentId: payment.id, gatewayPaymentId },
+        },
+      });
+      return updated;
+    });
   }
   static async transition(paymentId: string, to: PaymentStatus) {
     const prisma = getPrismaClient();
@@ -29,7 +71,7 @@ export class PaymentService {
   static async attempt(
     paymentId: string,
     scenario?: string,
-    executor: PaymentProvider = new MockPaymentProvider(),
+    executor: PaymentProvider = getPaymentProvider(),
   ) {
     const prisma = getPrismaClient();
     const payment = await prisma.payment.findUniqueOrThrow({

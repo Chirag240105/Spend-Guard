@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireApiKey } from '@/src/infrastructure/api';
 import { apiError } from '@/src/infrastructure/http';
-import { RazorpayAdapter, MockPaymentProvider } from '@/src/modules/providers/payment-provider';
+import { getPaymentProvider } from '@/src/modules/providers/payment-provider';
 import { PaymentService } from '@/src/modules/payments/payment.service';
 import { z } from 'zod';
 
@@ -23,32 +23,22 @@ export async function POST(req: NextRequest) {
       body.currency,
     );
 
-    // Create Razorpay order if credentials available
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    let razorpayOrderId: string | null = null;
-    if (keyId && keySecret) {
-      const provider = new RazorpayAdapter(keyId, keySecret);
-      const rzpOrder = await provider.createOrder({
-        amount: body.amount,
-        currency: body.currency,
-        receipt: order.id,
-        notes: { internalOrderId: order.id, merchantId: body.merchantId },
-      });
-      razorpayOrderId = rzpOrder.orderId;
-    } else {
-      // Mock order ID for demo
-      razorpayOrderId = `mock_order_${Date.now()}`;
-    }
+    const provider = getPaymentProvider();
+    const gatewayOrder = await provider.createOrder({
+      amount: body.amount,
+      currency: body.currency,
+      receipt: order.id,
+      notes: { internalOrderId: order.id, merchantId: body.merchantId },
+    });
+    await PaymentService.attachGatewayOrder(order.id, gatewayOrder.orderId);
 
     return NextResponse.json(
       {
         internalOrderId: order.id,
-        razorpayOrderId,
+        razorpayOrderId: gatewayOrder.orderId,
         amount: body.amount,
         currency: body.currency,
-        keyId: keyId ?? null,
+        keyId: process.env.RAZORPAY_KEY_ID ?? null,
       },
       { status: 201 },
     );

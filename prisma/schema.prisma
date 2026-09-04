@@ -131,6 +131,7 @@ model Order {
   amount     Decimal   @db.Decimal(18, 2)
   currency   String    @default("INR")
   status     String    @default("CREATED")
+  gatewayOrderId String? @unique
   createdAt  DateTime  @default(now())
   payments   Payment[]
 
@@ -145,6 +146,7 @@ model Payment {
   retryCount         Int                 @default(0)
   provider           String              @default("mock")
   failureReason      String?
+  gatewayPaymentId   String?             @unique
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   attempts           PaymentAttempt[]
