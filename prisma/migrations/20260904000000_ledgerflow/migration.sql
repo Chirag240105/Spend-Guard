@@ -1,0 +1,25 @@
+-- LedgerFlow is additive: the original SpendGuard records remain intact.
+CREATE TYPE "PaymentStatus" AS ENUM ('CREATED','ATTEMPTED','SUCCESS','FAILED','AI_DIAGNOSIS','RECOVERY_PENDING','RETRYING','HUMAN_REVIEW','APPROVED','REJECTED','DO_NOT_RETRY');
+CREATE TYPE "AttemptOutcome" AS ENUM ('SUCCESS','FAILED');
+CREATE TYPE "LedgerEntryType" AS ENUM ('debit','credit');
+CREATE TYPE "ApprovalStatus" AS ENUM ('pending','approved','rejected');
+CREATE TYPE "DeliveryStatus" AS ENUM ('pending','delivered','failed');
+CREATE TABLE "Merchant" ("id" TEXT PRIMARY KEY, "apiKeyHash" TEXT NOT NULL UNIQUE, "webhookUrl" TEXT, "webhookSecret" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "Order" ("id" TEXT PRIMARY KEY, "merchantId" TEXT NOT NULL REFERENCES "Merchant"("id"), "amount" DECIMAL(18,2) NOT NULL, "currency" TEXT NOT NULL DEFAULT 'INR', "status" TEXT NOT NULL DEFAULT 'CREATED', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "Payment" ("id" TEXT PRIMARY KEY, "orderId" TEXT NOT NULL REFERENCES "Order"("id"), "status" "PaymentStatus" NOT NULL DEFAULT 'CREATED', "retryCount" INTEGER NOT NULL DEFAULT 0, "provider" TEXT NOT NULL DEFAULT 'mock', "failureReason" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL);
+CREATE TABLE "PaymentAttempt" ("id" TEXT PRIMARY KEY, "paymentId" TEXT NOT NULL REFERENCES "Payment"("id"), "attemptNumber" INTEGER NOT NULL, "outcome" "AttemptOutcome" NOT NULL, "gatewayErrorCode" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE("paymentId", "attemptNumber"));
+CREATE TABLE "LedgerAccount" ("id" TEXT PRIMARY KEY, "ownerType" TEXT NOT NULL, "ownerId" TEXT NOT NULL, "balanceCache" DECIMAL(18,2) NOT NULL DEFAULT 0, UNIQUE("ownerType", "ownerId"));
+CREATE TABLE "LedgerTransaction" ("id" TEXT PRIMARY KEY, "paymentId" TEXT REFERENCES "Payment"("id"), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "LedgerEntry" ("id" TEXT PRIMARY KEY, "ledgerTransactionId" TEXT NOT NULL REFERENCES "LedgerTransaction"("id"), "accountId" TEXT NOT NULL REFERENCES "LedgerAccount"("id"), "type" "LedgerEntryType" NOT NULL, "amount" DECIMAL(18,2) NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "IdempotencyKey" ("id" TEXT PRIMARY KEY, "key" TEXT NOT NULL, "endpoint" TEXT NOT NULL, "requestHash" TEXT NOT NULL, "responseBody" JSONB, "status" TEXT NOT NULL DEFAULT 'PROCESSING', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE("key", "endpoint"));
+CREATE TABLE "OutboxEvent" ("id" TEXT PRIMARY KEY, "aggregateType" TEXT NOT NULL, "aggregateId" TEXT NOT NULL, "eventType" TEXT NOT NULL, "payload" JSONB NOT NULL, "dispatched" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "AgentDecision" ("id" TEXT PRIMARY KEY, "paymentId" TEXT NOT NULL REFERENCES "Payment"("id"), "inputSnapshot" JSONB NOT NULL, "output" JSONB NOT NULL, "policyAction" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE "HumanApproval" ("id" TEXT PRIMARY KEY, "agentDecisionId" TEXT NOT NULL UNIQUE REFERENCES "AgentDecision"("id"), "status" "ApprovalStatus" NOT NULL DEFAULT 'pending', "reviewedBy" TEXT, "reviewedAt" TIMESTAMP(3));
+CREATE TABLE "WebhookEvent" ("id" TEXT PRIMARY KEY, "merchantId" TEXT NOT NULL REFERENCES "Merchant"("id"), "eventType" TEXT NOT NULL, "dedupeKey" TEXT NOT NULL, "payload" JSONB NOT NULL, "deliveryStatus" "DeliveryStatus" NOT NULL DEFAULT 'pending', "attempts" INTEGER NOT NULL DEFAULT 0, "nextRetryAt" TIMESTAMP(3), "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE("merchantId", "dedupeKey"));
+CREATE INDEX "Order_merchantId_createdAt_idx" ON "Order"("merchantId", "createdAt");
+CREATE INDEX "Payment_orderId_status_idx" ON "Payment"("orderId", "status");
+CREATE INDEX "LedgerEntry_ledgerTransactionId_idx" ON "LedgerEntry"("ledgerTransactionId");
+CREATE INDEX "OutboxEvent_dispatched_createdAt_idx" ON "OutboxEvent"("dispatched", "createdAt");
+CREATE INDEX "AgentDecision_paymentId_createdAt_idx" ON "AgentDecision"("paymentId", "createdAt");
+CREATE INDEX "HumanApproval_status_idx" ON "HumanApproval"("status");
+CREATE INDEX "WebhookEvent_deliveryStatus_nextRetryAt_idx" ON "WebhookEvent"("deliveryStatus", "nextRetryAt");

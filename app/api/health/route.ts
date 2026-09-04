@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
+import { runSystemDiagnosis } from '../../../src/modules/agent/diagnosis';
 
 export async function GET() {
-  return NextResponse.json({
-    status: 'healthy',
-    message: 'SpendGuard API is running',
-    timestamp: new Date().toISOString(),
-  });
+  const report = await runSystemDiagnosis();
+  return NextResponse.json(report, { status: report.healthy ? 200 : 503 });
 }

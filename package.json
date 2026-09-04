@@ -7,15 +7,22 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "setup": "bash scripts/setup.sh"
+    "ledger:check": "tsx scripts/ledger-check.ts",
+    "eval:agent": "tsx scripts/eval-agent.ts",
+    "setup": "bash scripts/setup.sh",
+    "worker:relay": "tsx src/workers/outbox-relay.ts relay",
+  "worker:diagnosis": "tsx src/workers/outbox-relay.ts diagnosis",
+  "worker:both": "tsx src/workers/outbox-relay.ts both"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "axios": "^1.7.7",
+    "bullmq": "^5.81.4",
     "dotenv": "^16.4.5",
     "next": "16.3.4",
     "react": "19.2.8",

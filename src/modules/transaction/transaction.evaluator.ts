@@ -10,6 +10,8 @@ import {
   incrementMonthlySpend,
 } from '../../infrastructure/redis';
 
+import { OutboxService } from '../outbox/outbox.service';
+
 export interface TransactionEvaluationRequest {
   policyId: string;
   amount: number;
@@ -151,7 +153,23 @@ export class TransactionEvaluator {
         evaluationResult.source,
         evaluationResult.confidence
       );
+      
 
+if (evaluationResult.decision === 'BLOCK') {
+  await OutboxService.enqueue({
+    eventType: 'payment.failed',
+    aggregateId: transaction.id,
+    payload: {
+      transactionId: transaction.id,
+      policyId: request.policyId,
+      amount: request.amount,
+      merchant: request.merchant,
+      reason: evaluationResult.explanation,
+      decisionSource: evaluationResult.source,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
       // Log decision
       await AuditService.logEvent(
         'DECISION_MADE',

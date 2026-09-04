@@ -11,67 +11,265 @@ datasource db {
 }
 
 model Policy {
-  id                String   @id @default(cuid())
-  name              String
-  naturalLanguage   String   @db.Text
-  compiledPolicy    Json
-  version           Int      @default(1)
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id              String   @id @default(cuid())
+  name            String
+  naturalLanguage String   @db.Text
+  compiledPolicy  Json
+  version         Int      @default(1)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  transactions      Transaction[]
-  decisions         Decision[]
-  auditLogs         AuditLog[]
+  transactions Transaction[]
+  decisions    Decision[]
+  auditLogs    AuditLog[]
 }
 
 model Transaction {
-  id                String   @id @default(cuid())
-  amount            Float
-  currency          String   @default("INR")
-  merchant          String
-  category          String
-  timestamp         DateTime @default(now())
-  agentId           String
-  metadata          Json?
-  policyId          String
-  policy            Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
+  id        String   @id @default(cuid())
+  amount    Float
+  currency  String   @default("INR")
+  merchant  String
+  category  String
+  timestamp DateTime @default(now())
+  agentId   String
+  metadata  Json?
+  policyId  String
+  policy    Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
-  decision          Decision?
-  auditLogs         AuditLog[]
+  decision  Decision?
+  auditLogs AuditLog[]
 
   @@index([agentId])
   @@index([policyId])
 }
 
 model Decision {
-  id                String   @id @default(cuid())
-  transactionId     String   @unique
-  transaction       Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  policyId          String
-  policy            Policy   @relation(fields: [policyId], references: [id], onDelete: Cascade)
-  decision          String   // "ALLOW" | "HOLD" | "BLOCK"
-  reason            String   @db.Text
-  ruleResults       Json     // Array of rule evaluation results
-  confidence        Float?
-  source            String   // "DETERMINISTIC" | "AI" | "HUMAN_OVERRIDE"
-  createdAt         DateTime @default(now())
+  id            String      @id @default(cuid())
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  policyId      String
+  policy        Policy      @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  decision      String // "ALLOW" | "HOLD" | "BLOCK"
+  reason        String      @db.Text
+  ruleResults   Json // Array of rule evaluation results
+  confidence    Float?
+  source        String // "DETERMINISTIC" | "AI" | "HUMAN_OVERRIDE"
+  createdAt     DateTime    @default(now())
 
   @@index([policyId])
 }
 
 model AuditLog {
-  id                String   @id @default(cuid())
-  transactionId     String?
-  transaction       Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
-  policyId          String?
-  policy            Policy?  @relation(fields: [policyId], references: [id], onDelete: SetNull)
-  event             String   // "POLICY_CREATED", "TRANSACTION_RECEIVED", "DECISION_MADE", "HUMAN_OVERRIDE", etc.
-  actor             String   // "SYSTEM", "USER", "AI", etc.
-  details           Json?
-  createdAt         DateTime @default(now())
+  id            String       @id @default(cuid())
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  policyId      String?
+  policy        Policy?      @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  event         String // "POLICY_CREATED", "TRANSACTION_RECEIVED", "DECISION_MADE", "HUMAN_OVERRIDE", etc.
+  actor         String // "SYSTEM", "USER", "AI", etc.
+  details       Json?
+  createdAt     DateTime     @default(now())
 
   @@index([policyId])
   @@index([transactionId])
+}
+
+// LedgerFlow models. Legacy SpendGuard models above are deliberately retained so
+// an upgrade does not discard existing development data.
+enum PaymentStatus {
+  CREATED
+  ATTEMPTED
+  SUCCESS
+  FAILED
+  AI_DIAGNOSIS
+  RECOVERY_PENDING
+  RETRYING
+  HUMAN_REVIEW
+  APPROVED
+  REJECTED
+  DO_NOT_RETRY
+}
+
+enum AttemptOutcome {
+  SUCCESS
+  FAILED
+}
+
+enum LedgerEntryType {
+  debit
+  credit
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum DeliveryStatus {
+  pending
+  delivered
+  failed
+}
+
+model Merchant {
+  id            String         @id @default(cuid())
+  apiKeyHash    String         @unique
+  webhookUrl    String?
+  webhookSecret String?
+  createdAt     DateTime       @default(now())
+  orders        Order[]
+  webhookEvents WebhookEvent[]
+}
+
+model Order {
+  id         String    @id @default(cuid())
+  merchantId String
+  merchant   Merchant  @relation(fields: [merchantId], references: [id])
+  amount     Decimal   @db.Decimal(18, 2)
+  currency   String    @default("INR")
+  status     String    @default("CREATED")
+  createdAt  DateTime  @default(now())
+  payments   Payment[]
+
+  @@index([merchantId, createdAt])
+}
+
+model Payment {
+  id                 String              @id @default(cuid())
+  orderId            String
+  order              Order               @relation(fields: [orderId], references: [id])
+  status             PaymentStatus       @default(CREATED)
+  retryCount         Int                 @default(0)
+  provider           String              @default("mock")
+  failureReason      String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  attempts           PaymentAttempt[]
+  ledgerTransactions LedgerTransaction[]
+  agentDecisions     AgentDecision[]
+
+  @@index([orderId, status])
+}
+
+model PaymentAttempt {
+  id               String         @id @default(cuid())
+  paymentId        String
+  payment          Payment        @relation(fields: [paymentId], references: [id])
+  attemptNumber    Int
+  outcome          AttemptOutcome
+  gatewayErrorCode String?
+  createdAt        DateTime       @default(now())
+
+  @@unique([paymentId, attemptNumber])
+}
+
+model LedgerTransaction {
+  id        String        @id @default(cuid())
+  paymentId String?
+  payment   Payment?      @relation(fields: [paymentId], references: [id])
+  createdAt DateTime      @default(now())
+  entries   LedgerEntry[]
+}
+
+model LedgerEntry {
+  id                  String            @id @default(cuid())
+  ledgerTransactionId String
+  ledgerTransaction   LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id])
+  accountId           String
+  account             LedgerAccount     @relation(fields: [accountId], references: [id])
+  type                LedgerEntryType
+  amount              Decimal           @db.Decimal(18, 2)
+  createdAt           DateTime          @default(now())
+
+  @@index([ledgerTransactionId])
+}
+
+model LedgerAccount {
+  id           String        @id @default(cuid())
+  ownerType    String
+  ownerId      String
+  balanceCache Decimal       @default(0) @db.Decimal(18, 2)
+  entries      LedgerEntry[]
+
+  @@unique([ownerType, ownerId])
+}
+
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  key          String
+  endpoint     String
+  requestHash  String
+  responseBody Json?
+  status       String   @default("PROCESSING")
+  createdAt    DateTime @default(now())
+
+  @@unique([key, endpoint])
+}
+
+model OutboxEvent {
+  id            String   @id @default(cuid())
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  payload       Json
+  dispatched    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([dispatched, createdAt])
+}
+
+model AgentDecision {
+  id            String         @id @default(cuid())
+  paymentId     String
+  payment       Payment        @relation(fields: [paymentId], references: [id])
+  inputSnapshot Json
+  output        Json
+  policyAction  String
+  createdAt     DateTime       @default(now())
+  approval      HumanApproval?
+
+  @@index([paymentId, createdAt])
+}
+
+model HumanApproval {
+  id              String         @id @default(cuid())
+  agentDecisionId String         @unique
+  agentDecision   AgentDecision  @relation(fields: [agentDecisionId], references: [id])
+  status          ApprovalStatus @default(pending)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+
+  @@index([status])
+}
+
+model WebhookEvent {
+  id             String         @id @default(cuid())
+  merchantId     String
+  merchant       Merchant       @relation(fields: [merchantId], references: [id])
+  eventType      String
+  dedupeKey      String
+  payload        Json
+  deliveryStatus DeliveryStatus @default(pending)
+  attempts       Int            @default(0)
+  nextRetryAt    DateTime?
+  createdAt      DateTime       @default(now())
+
+  @@unique([merchantId, dedupeKey])
+  @@index([deliveryStatus, nextRetryAt])
+}
+model Outbox {
+  id          String   @id @default(cuid())
+  eventType   String   // "payment.failed", "transaction.evaluated", etc.
+  payload     Json
+  aggregateId String   // e.g., transactionId
+  status      String   @default("pending") // "pending" | "dispatched" | "failed"
+  retryCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([eventType, status])
 }
