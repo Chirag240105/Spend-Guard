@@ -209,13 +209,10 @@ export function evaluateTransaction(
 
   if (hasBlockedCategory || hasBlockedMerchant || hasPeriodLimitFailure) {
     decision = 'BLOCK';
-  } else if (
-    requiresApproval ||
-    hasPerTxLimitFailure ||
-    hasUnknownCategory ||
-    hasTimeWindowFailure
-  ) {
+  } else if (requiresApproval || hasUnknownCategory || hasTimeWindowFailure) {
     decision = 'HOLD';
+  } else if (hasPerTxLimitFailure) {
+    decision = 'BLOCK';
   }
 
   return {
