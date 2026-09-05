@@ -111,6 +111,21 @@ const Icons = {
       <path d="M1 6.5h14" />
     </svg>
   ),
+  Recovery: () => (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M13 8a5 5 0 1 1-1.3-3.4" />
+      <path d="M12.5 2.8v2.8h-2.8" />
+    </svg>
+  ),
   Bell: () => (
     <svg
       width="18"
@@ -173,6 +188,7 @@ const Icons = {
 const links = [
   { label: 'Overview', href: '/dashboard', Icon: Icons.Overview },
   { label: 'Payments', href: '/payments', Icon: Icons.Payments },
+  { label: 'Recovery', href: '/recovery', Icon: Icons.Recovery },
   { label: 'Policies', href: '/policies', Icon: Icons.Policies },
   { label: 'Transactions', href: '/transactions', Icon: Icons.Transactions },
   { label: 'Approvals', href: '/approvals', Icon: Icons.Approvals },
@@ -584,7 +600,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           padding: '6px 4px 10px',
         }}
       >
-        {links.slice(0, 5).map(({ label, href, Icon }) => {
+        {links.slice(0, 6).map(({ label, href, Icon }) => {
           const active = href === '/dashboard' ? path === '/dashboard' : path.startsWith(href);
           const badge = label === 'Approvals' ? pendingApprovals : 0;
           return (

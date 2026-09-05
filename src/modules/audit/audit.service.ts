@@ -5,6 +5,8 @@ export interface AuditEvent {
   id: string;
   transactionId?: string;
   policyId?: string;
+  paymentId?: string;
+  recoveryId?: string;
   event: string;
   actor: string;
   details?: Record<string, unknown>;
@@ -24,6 +26,8 @@ export class AuditService {
     details?: Record<string, unknown>,
     transactionId?: string,
     policyId?: string,
+    paymentId?: string,
+    recoveryId?: string,
   ): Promise<AuditEvent> {
     const prisma = getPrismaClient();
 
@@ -34,6 +38,8 @@ export class AuditService {
         details: details as Prisma.InputJsonValue | undefined,
         transactionId,
         policyId,
+        paymentId,
+        recoveryId,
       },
     });
 
@@ -41,6 +47,8 @@ export class AuditService {
       id: auditLog.id,
       transactionId: auditLog.transactionId || undefined,
       policyId: auditLog.policyId || undefined,
+      paymentId: auditLog.paymentId || undefined,
+      recoveryId: auditLog.recoveryId || undefined,
       event: auditLog.event,
       actor: auditLog.actor,
       details: (auditLog.details as Record<string, unknown>) || undefined,
@@ -62,6 +70,8 @@ export class AuditService {
       id: l.id,
       transactionId: l.transactionId || undefined,
       policyId: l.policyId || undefined,
+      paymentId: l.paymentId || undefined,
+      recoveryId: l.recoveryId || undefined,
       event: l.event,
       actor: l.actor,
       details: (l.details as Record<string, unknown>) || undefined,
@@ -84,6 +94,8 @@ export class AuditService {
       id: l.id,
       transactionId: l.transactionId || undefined,
       policyId: l.policyId || undefined,
+      paymentId: l.paymentId || undefined,
+      recoveryId: l.recoveryId || undefined,
       event: l.event,
       actor: l.actor,
       details: (l.details as Record<string, unknown>) || undefined,

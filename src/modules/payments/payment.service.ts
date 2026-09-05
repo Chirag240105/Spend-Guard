@@ -37,22 +37,41 @@ export class PaymentService {
     });
   }
 
-  static async recordCheckoutFailure(paymentId: string, status: 'PAYMENT_FAILED' | 'PAYMENT_ABANDONED', reason: string) {
+  static async recordCheckoutFailure(
+    paymentId: string,
+    status: 'PAYMENT_FAILED' | 'PAYMENT_ABANDONED',
+    reason: string,
+  ) {
     const prisma = getPrismaClient();
     const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
     if (payment.status === 'SUCCESS' || payment.status === 'FAILED') return payment;
     if (payment.status === 'CREATED') await this.transition(paymentId, 'ATTEMPTED');
     await this.transition(paymentId, 'FAILED');
-    return prisma.$transaction(
-      async (tx) => {
+    return prisma.$transaction(async (tx) => {
       const attemptNumber = (await tx.paymentAttempt.count({ where: { paymentId } })) + 1;
       await tx.paymentAttempt.create({
         data: { paymentId, attemptNumber, outcome: 'FAILED', gatewayErrorCode: status },
       });
       await tx.outboxEvent.create({
-        data: { aggregateType: 'payment', aggregateId: paymentId, eventType: 'payment.failed', payload: { paymentId, status, reason } },
+        data: {
+          aggregateType: 'payment',
+          aggregateId: paymentId,
+          eventType: 'payment.failed',
+          payload: { paymentId, status, reason },
+        },
       });
-      return tx.payment.update({ where: { id: paymentId }, data: { checkoutStatus: status, failureReason: reason } });
+      await tx.auditLog.create({
+        data: {
+          event: 'PAYMENT_FAILED',
+          actor: 'payment-service',
+          paymentId,
+          details: { status, reason, attemptNumber },
+        },
+      });
+      return tx.payment.update({
+        where: { id: paymentId },
+        data: { checkoutStatus: status, failureReason: reason },
+      });
     });
   }
 
@@ -77,28 +96,51 @@ export class PaymentService {
     const paymentRecord = payment
       ? await prisma.payment.update({
           where: { id: payment.id },
-          data: { provider, gatewayPaymentId, razorpayPaymentId: gatewayPaymentId, razorpayOrderId: gatewayOrderId, razorpaySignature: signature },
+          data: {
+            provider,
+            gatewayPaymentId,
+            razorpayPaymentId: gatewayPaymentId,
+            razorpayOrderId: gatewayOrderId,
+            razorpaySignature: signature,
+          },
         })
       : await prisma.payment.create({
-          data: { orderId, provider, gatewayPaymentId, razorpayPaymentId: gatewayPaymentId, razorpayOrderId: gatewayOrderId, razorpaySignature: signature },
+          data: {
+            orderId,
+            provider,
+            gatewayPaymentId,
+            razorpayPaymentId: gatewayPaymentId,
+            razorpayOrderId: gatewayOrderId,
+            razorpaySignature: signature,
+          },
         });
     await this.transition(paymentRecord.id, 'ATTEMPTED');
-    return prisma.$transaction(
-      async (tx) => {
+    return prisma.$transaction(async (tx) => {
       const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
       const merchantAccount = await tx.ledgerAccount.upsert({
         where: { ownerType_ownerId: { ownerType: 'MERCHANT', ownerId: order.merchantId } },
-        create: { ownerType: 'MERCHANT', ownerId: order.merchantId }, update: {},
+        create: { ownerType: 'MERCHANT', ownerId: order.merchantId },
+        update: {},
       });
       const clearingAccount = await tx.ledgerAccount.upsert({
         where: { ownerType_ownerId: { ownerType: 'CLEARING', ownerId: 'platform' } },
-        create: { ownerType: 'CLEARING', ownerId: 'platform' }, update: {},
+        create: { ownerType: 'CLEARING', ownerId: 'platform' },
+        update: {},
       });
       await tx.paymentAttempt.create({
         data: { paymentId: paymentRecord.id, attemptNumber: 1, outcome: 'SUCCESS' },
       });
-      await postBalancedLedger(tx, paymentRecord.id, order.amount, clearingAccount.id, merchantAccount.id);
-      const updated = await tx.payment.update({ where: { id: paymentRecord.id }, data: { status: 'SUCCESS', checkoutStatus: 'CAPTURED', verifiedAt: new Date() } });
+      await postBalancedLedger(
+        tx,
+        paymentRecord.id,
+        order.amount,
+        clearingAccount.id,
+        merchantAccount.id,
+      );
+      const updated = await tx.payment.update({
+        where: { id: paymentRecord.id },
+        data: { status: 'SUCCESS', checkoutStatus: 'CAPTURED', verifiedAt: new Date() },
+      });
       await tx.outboxEvent.create({
         data: {
           aggregateType: 'payment',
@@ -130,56 +172,79 @@ export class PaymentService {
     await this.transition(paymentId, entering);
     const result = await executor.execute({ paymentId, scenario });
     const next = result.success ? 'SUCCESS' : 'FAILED';
-    return prisma.$transaction(async (tx) => {
-      const attemptNo = payment.attempts.length + 1;
-      await tx.paymentAttempt.create({
-        data: {
-          paymentId,
-          attemptNumber: attemptNo,
-          outcome: result.success ? 'SUCCESS' : 'FAILED',
-          gatewayErrorCode: result.errorCode,
-        },
-      });
-      if (result.success) {
-        const merchantAccount = await tx.ledgerAccount.upsert({
-          where: {
-            ownerType_ownerId: { ownerType: 'MERCHANT', ownerId: payment.order.merchantId },
+    return prisma.$transaction(
+      async (tx) => {
+        const attemptNo = payment.attempts.length + 1;
+        await tx.paymentAttempt.create({
+          data: {
+            paymentId,
+            attemptNumber: attemptNo,
+            outcome: result.success ? 'SUCCESS' : 'FAILED',
+            gatewayErrorCode: result.errorCode,
           },
-          create: { ownerType: 'MERCHANT', ownerId: payment.order.merchantId },
-          update: {},
         });
-        const clearingAccount = await tx.ledgerAccount.upsert({
-          where: { ownerType_ownerId: { ownerType: 'CLEARING', ownerId: 'platform' } },
-          create: { ownerType: 'CLEARING', ownerId: 'platform' },
-          update: {},
+        await tx.auditLog.create({
+          data: {
+            event: result.success ? 'PAYMENT_SUCCEEDED' : 'PAYMENT_FAILED',
+            actor: 'payment-service',
+            paymentId,
+            details: {
+              attemptNumber: attemptNo,
+              success: result.success,
+              errorCode: result.errorCode ?? null,
+              error: result.error ?? null,
+              scenario: scenario ?? null,
+            },
+          },
         });
-        await postBalancedLedger(
-          tx,
+        if (result.success) {
+          const merchantAccount = await tx.ledgerAccount.upsert({
+            where: {
+              ownerType_ownerId: { ownerType: 'MERCHANT', ownerId: payment.order.merchantId },
+            },
+            create: { ownerType: 'MERCHANT', ownerId: payment.order.merchantId },
+            update: {},
+          });
+          const clearingAccount = await tx.ledgerAccount.upsert({
+            where: { ownerType_ownerId: { ownerType: 'CLEARING', ownerId: 'platform' } },
+            create: { ownerType: 'CLEARING', ownerId: 'platform' },
+            update: {},
+          });
+          await postBalancedLedger(
+            tx,
+            paymentId,
+            payment.order.amount,
+            clearingAccount.id,
+            merchantAccount.id,
+          );
+        }
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: {
+            status: next,
+            retryCount: entering === 'RETRYING' ? { increment: 1 } : undefined,
+            failureReason: result.error ?? null,
+          },
+        });
+        await tx.outboxEvent.create({
+          data: {
+            aggregateType: 'payment',
+            aggregateId: paymentId,
+            eventType: result.success ? 'payment.success' : 'payment.failed',
+            payload: { paymentId, errorCode: result.errorCode ?? null },
+          },
+        });
+        return {
           paymentId,
-          payment.order.amount,
-          clearingAccount.id,
-          merchantAccount.id,
-        );
-      }
-      await tx.payment.update({
-        where: { id: paymentId },
-        data: {
+          success: result.success,
           status: next,
-          retryCount: entering === 'RETRYING' ? { increment: 1 } : undefined,
-          failureReason: result.error ?? null,
-        },
-      });
-      await tx.outboxEvent.create({
-        data: {
-          aggregateType: 'payment',
-          aggregateId: paymentId,
-          eventType: result.success ? 'payment.success' : 'payment.failed',
-          payload: { paymentId, errorCode: result.errorCode ?? null },
-        },
-      });
-      return { paymentId, success: result.success, status: next, errorCode: result.errorCode };
-    },{
-      timeout: 15000,
-    });
+          errorCode: result.errorCode,
+          error: result.error,
+        };
+      },
+      {
+        timeout: 15000,
+      },
+    );
   }
 }

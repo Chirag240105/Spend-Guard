@@ -122,6 +122,82 @@ export default async function PaymentDetailPage({ params }: PageProps) {
           <pre style={{ background: 'var(--canvas)', border: '1px solid var(--line)', borderRadius: 10, color: 'var(--ink-2)', fontSize: 11, lineHeight: 1.6, margin: 0, overflowX: 'auto', padding: 14, whiteSpace: 'pre-wrap' }}>{JSON.stringify(decisionOutput, null, 2)}</pre>
         </section>
       )}
+
+      {payment.recovery && (
+        <section className="surface" style={{ padding: 20 }}>
+          <h2 style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 800, margin: '0 0 14px' }}>
+            Recovery record
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <DetailRow label="Status" value={payment.recovery.status} />
+            <DetailRow label="Action" value={payment.recovery.executedAction} />
+            <DetailRow label="Attempts" value={`${payment.recovery.attemptCount}/${payment.recovery.maxAttempts}`} />
+            <DetailRow label="Stopped" value={payment.recovery.stopped ? 'Yes' : 'No'} />
+            <DetailRow label="Stop reason" value={payment.recovery.stopReason ?? 'None'} />
+            <DetailRow label="Escalated" value={payment.recovery.escalated ? 'Yes' : 'No'} />
+            <DetailRow label="Recovered amount" value={money(String(payment.recovery.recoveredAmount), currency)} />
+            <DetailRow label="Risk window" value={dateTime(payment.recovery.recoveryWindowEndsAt)} />
+          </div>
+          <pre
+            style={{
+              background: 'var(--canvas)',
+              border: '1px solid var(--line)',
+              borderRadius: 10,
+              color: 'var(--ink-2)',
+              fontSize: 11,
+              lineHeight: 1.6,
+              margin: 0,
+              overflowX: 'auto',
+              padding: 14,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {JSON.stringify(payment.recovery.diagnosis, null, 2)}
+          </pre>
+        </section>
+      )}
+
+      {payment.auditLogs.length > 0 && (
+        <section className="surface" style={{ padding: 20 }}>
+          <h2 style={{ color: 'var(--ink)', fontSize: 15, fontWeight: 800, margin: '0 0 14px' }}>
+            Audit timeline
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {payment.auditLogs.map((event) => (
+              <div
+                key={event.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 14,
+                  padding: '12px 0',
+                  borderTop: '1px solid var(--line-2)',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, color: 'var(--ink)', fontSize: 13, fontWeight: 700 }}>
+                    {event.event}
+                  </p>
+                  <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 12 }}>
+                    {event.actor}
+                    {event.details ? ` · ${JSON.stringify(event.details)}` : ''}
+                  </p>
+                </div>
+                <div style={{ color: 'var(--muted)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                  {dateTime(event.createdAt)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

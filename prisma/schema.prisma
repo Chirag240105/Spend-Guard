@@ -61,15 +61,21 @@ model AuditLog {
   id            String       @id @default(cuid())
   transactionId String?
   policyId      String?
+  paymentId     String?
+  recoveryId    String?
   event         String
   actor         String
   details       Json?
   createdAt     DateTime     @default(now())
   policy        Policy?      @relation(fields: [policyId], references: [id])
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  payment       Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  recovery      PaymentRecovery? @relation(fields: [recoveryId], references: [id], onDelete: SetNull)
 
   @@index([policyId])
   @@index([transactionId])
+  @@index([paymentId])
+  @@index([recoveryId])
 }
 
 model Merchant {
@@ -112,7 +118,9 @@ model Payment {
   updatedAt          DateTime            @updatedAt
   gatewayPaymentId   String?             @unique
   agentDecisions     AgentDecision[]
+  auditLogs          AuditLog[]
   ledgerTransactions LedgerTransaction[]
+  recovery           PaymentRecovery?
   order              Order               @relation(fields: [orderId], references: [id])
   attempts           PaymentAttempt[]
 
@@ -250,6 +258,34 @@ model Outbox {
   @@index([eventType, status])
 }
 
+model PaymentRecovery {
+  id                   String         @id @default(cuid())
+  paymentId            String         @unique
+  diagnosis            Json
+  failureCategory      String
+  recommendedAction    String
+  executedAction       String
+  status               RecoveryStatus @default(PENDING)
+  attemptCount         Int            @default(0)
+  maxAttempts          Int            @default(3)
+  amountAtRisk         Decimal        @db.Decimal(18, 2)
+  recoveredAmount      Decimal        @default(0) @db.Decimal(18, 2)
+  stopped              Boolean        @default(false)
+  stopReason           String?
+  escalated            Boolean        @default(false)
+  recoveryWindowEndsAt DateTime?
+  lastAttemptAt        DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  payment              Payment        @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  auditLogs            AuditLog[]
+
+  @@index([status, createdAt])
+  @@index([failureCategory, status])
+  @@index([executedAction, stopped])
+}
+
 enum PaymentStatus {
   CREATED
   ATTEMPTED
@@ -284,4 +320,13 @@ enum DeliveryStatus {
   pending
   delivered
   failed
+}
+
+enum RecoveryStatus {
+  PENDING
+  RETRYING
+  HUMAN_REVIEW
+  STOPPED
+  SUCCESS
+  DO_NOT_RETRY
 }
