@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 // ── Icons ─────────────────────────────────────────────────────────────────
 const Icons = {
@@ -194,31 +194,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [authChecked, setAuthChecked] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState(0);
 
-  // On mount, verify session
-  const checkAuth = useCallback(async () => {
-    // The marketing landing page is public.  Do not send visitors to login
-    // simply because they do not have an application session yet.
-    if (path === '/' || path === '/login') {
-      setAuthChecked(true);
-      return;
-    }
-    try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-        setAuthChecked(true);
-      } else {
-        router.replace('/login');
-      }
-    } catch {
-      router.replace('/login');
-    }
-  }, [path, router]);
-
+  // On mount, verify session without updating state during the effect call itself.
   useEffect(() => {
-    void checkAuth();
-  }, [checkAuth]);
+    let cancelled = false;
+    const authenticate = async () => {
+      // The marketing landing page is public. Do not send visitors to login
+      // simply because they do not have an application session yet.
+      if (path === '/' || path === '/login') {
+        if (!cancelled) setAuthChecked(true);
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) {
+            setUser(data.user);
+            setAuthChecked(true);
+          }
+        } else if (!cancelled) {
+          router.replace('/login');
+        }
+      } catch {
+        if (!cancelled) router.replace('/login');
+      }
+    };
+    void authenticate();
+    return () => {
+      cancelled = true;
+    };
+  }, [path, router]);
 
   // Poll pending approvals
   useEffect(() => {
