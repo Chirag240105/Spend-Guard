@@ -43,7 +43,8 @@ export class PaymentService {
     if (payment.status === 'SUCCESS' || payment.status === 'FAILED') return payment;
     if (payment.status === 'CREATED') await this.transition(paymentId, 'ATTEMPTED');
     await this.transition(paymentId, 'FAILED');
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(
+      async (tx) => {
       const attemptNumber = (await tx.paymentAttempt.count({ where: { paymentId } })) + 1;
       await tx.paymentAttempt.create({
         data: { paymentId, attemptNumber, outcome: 'FAILED', gatewayErrorCode: status },
@@ -82,7 +83,8 @@ export class PaymentService {
           data: { orderId, provider, gatewayPaymentId, razorpayPaymentId: gatewayPaymentId, razorpayOrderId: gatewayOrderId, razorpaySignature: signature },
         });
     await this.transition(paymentRecord.id, 'ATTEMPTED');
-    return prisma.$transaction(async (tx) => {
+    return prisma.$transaction(
+      async (tx) => {
       const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
       const merchantAccount = await tx.ledgerAccount.upsert({
         where: { ownerType_ownerId: { ownerType: 'MERCHANT', ownerId: order.merchantId } },
@@ -176,6 +178,8 @@ export class PaymentService {
         },
       });
       return { paymentId, success: result.success, status: next, errorCode: result.errorCode };
+    },{
+      timeout: 15000,
     });
   }
 }
