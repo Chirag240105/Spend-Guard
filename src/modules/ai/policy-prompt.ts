@@ -20,9 +20,9 @@ Output this JSON structure EXACTLY:
   "name": "Policy name from context",
   "limits": { "perTransaction": 500 or null, "daily": 2000 or null, "weekly": null, "monthly": null },
   "categories": { "allowed": ["category1", "category2"] or [], "blocked": ["blocked1"] or [] },
-  "merchants": { "allowed": [] or null, "blocked": [] or null },
+  "merchants": { "allowed": [], "blocked": [] },
   "timeWindow": { "start": "HH:MM", "end": "HH:MM", "timezone": "UTC" } or null,
-  "approval": { "aboveAmount": 500 or null, "categories": [] or null } or null
+  "approval": { "aboveAmount": 500, "categories": [] } or null
 }
 
 CRITICAL RULES:
@@ -30,6 +30,6 @@ CRITICAL RULES:
 - All monetary amounts must be numbers (no currency symbols)
 - Time must be in HH:MM format (24-hour)
 - Categories must be lowercase with underscores
-- If a field is not mentioned, set to null or empty array
+- If an optional object is not mentioned, set the object to null. Within an object, omit optional scalar fields and always use empty arrays for list fields.
 - Return ONLY the JSON object, no additional text`;
 }
