@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+
 import { PageState } from '@/src/components/page-state';
 
 const money = (n: number | string, cur = 'INR') =>
@@ -45,7 +45,6 @@ export default function Approvals() {
   }, []);
 
   useEffect(() => {
-    void load();
     const id = setInterval(load, 30_000);
     return () => clearInterval(id);
   }, [load]);

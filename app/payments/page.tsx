@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+
+import { useRouter } from 'next/navigation';
 import { PageState } from '@/src/components/page-state';
 
 declare global {
@@ -68,6 +69,7 @@ const SCENARIOS = [
 type Scenario = (typeof SCENARIOS)[number];
 
 export default function PaymentsPage() {
+  const router = useRouter();
   const [payments, setPayments] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
@@ -370,7 +372,7 @@ export default function PaymentsPage() {
                     <tr
                       key={p.id}
                       style={{ cursor: 'pointer' }}
-                      onClick={() => (window.location.href = `/payments/${p.id}`)}
+                      onClick={() => router.push(`/payments/${p.id}`)}
                     >
                       <td>
                         <StatusBadge status={p.status} />
