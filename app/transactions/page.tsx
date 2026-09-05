@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { DecisionBadge } from '@/src/components/decision-badge';
 import { PageState } from '@/src/components/page-state';
@@ -32,6 +33,7 @@ const SearchIcon = () => (
 );
 
 export default function Transactions() {
+  const router = useRouter();
   const [data, setData] = useState<{ items: Item[] }>();
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -166,7 +168,7 @@ export default function Transactions() {
                   <tr
                     key={i.decision.id}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => (window.location.href = `/transactions/${i.transaction.id}`)}
+                    onClick={() => router.push(`/transactions/${i.transaction.id}`)}
                   >
                     <td>
                       <DecisionBadge decision={i.decision.decision} />

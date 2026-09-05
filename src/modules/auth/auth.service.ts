@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { NextResponse } from 'next/server';
 import { getPrismaClient } from '@/src/infrastructure/database';
 
 const JWT_SECRET = process.env.JWT_SECRET ?? 'spendguard-dev-secret-change-in-production';
@@ -125,7 +126,6 @@ export function requireAuth(
 ): import('next/server').NextResponse | null {
   const auth = getAuthFromRequest(req);
   if (!auth) {
-    const { NextResponse } = require('next/server') as typeof import('next/server');
     return NextResponse.json(
       { error: 'Unauthenticated', code: 'UNAUTHENTICATED' },
       { status: 401 },
