@@ -68,6 +68,12 @@ describe('Transaction Evaluator', () => {
     expect(result.decision).toBe('HOLD');
   });
 
+  it('should HOLD an allowed-by-default category that is not on the allowlist', () => {
+    const tx = { ...baseTransaction, amount: 450, merchant: 'Food Court', category: 'Food' };
+    const result = evaluateTransaction(tx, policy, spendingContext);
+    expect(result.decision).toBe('HOLD');
+  });
+
   it('should BLOCK transaction over daily limit', () => {
     const context: SpendingContext = {
       dailySpent: 1800,

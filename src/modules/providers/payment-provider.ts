@@ -218,6 +218,27 @@ export class MockPaymentProvider implements PaymentProvider {
     if (params.scenario === 'GATEWAY_TIMEOUT') {
       return { success: false, errorCode: 'GATEWAY_TIMEOUT', error: 'Payment gateway timeout' };
     }
+    if (params.scenario === 'BANK_TEMPORARY_FAILURE') {
+      return {
+        success: false,
+        errorCode: 'BANK_TEMPORARY_FAILURE',
+        error: 'Bank temporarily unavailable',
+      };
+    }
+    if (params.scenario === 'CARD_DECLINED') {
+      return {
+        success: false,
+        errorCode: 'CARD_DECLINED',
+        error: 'Card declined by issuer',
+      };
+    }
+    if (params.scenario === 'UNKNOWN') {
+      return {
+        success: false,
+        errorCode: 'UNKNOWN_FAILURE',
+        error: 'Unknown payment failure',
+      };
+    }
     if (params.scenario === 'FAIL') {
       return { success: false, errorCode: 'UNKNOWN_FAILURE', error: 'Transaction failed' };
     }
