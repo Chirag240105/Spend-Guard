@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 const YEAR = new Date().getFullYear();
 
 export default function LandingFooter() {

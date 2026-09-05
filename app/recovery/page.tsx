@@ -88,20 +88,26 @@ export default function RecoveryPage() {
   const [error, setError] = useState('');
   const [batchLabel, setBatchLabel] = useState('recovery-demo-20260905');
 
-  const load = async () => {
-    try {
-      const res = await fetch('/api/v1/recovery', { credentials: 'include' });
-      if (!res.ok) throw new Error('Load failed');
-      const data = await res.json();
-      setSummary(data.summary);
-      setItems(data.recentRecoveries ?? []);
-    } catch {
-      setError('Unable to load recovery analytics.');
-    }
-  };
-
   useEffect(() => {
-    void load();
+    let cancelled = false;
+
+    fetch('/api/v1/recovery', { credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Load failed');
+        return res.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setSummary(data.summary);
+        setItems(data.recentRecoveries ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Unable to load recovery analytics.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function runDemo() {

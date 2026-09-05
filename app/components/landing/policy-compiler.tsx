@@ -50,7 +50,7 @@ export default function PolicyCompilerSection() {
     );
     if (sectionRef.current) io.observe(sectionRef.current);
     return () => io.disconnect();
-  }, [hasEntered]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasEntered]);
 
   function runAnimation() {
     setAnimating(true);
