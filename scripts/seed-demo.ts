@@ -7,6 +7,7 @@ import { MockPaymentProvider } from '../src/modules/providers/payment-provider';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { getPrismaClient } from '../src/infrastructure/database';
 import { clearSpendingCounters, closeRedis } from '../src/infrastructure/redis';
+import { runRecoveryBatchDemo } from '../src/modules/recovery/recovery.demo';
 
 const DEMO_POLICY_NL = `My agent can spend up to Rs 2,000 per day on groceries and school supplies.
 Never spend more than Rs 500 at once.
@@ -269,6 +270,25 @@ async function seedDemo() {
     console.log(
       `   ${(successResult.success && successPayment?.status === 'SUCCESS') ? 'OK' : 'FAIL'} ₹4,999 successful payment (baseline revenue)`,
     );
+
+    console.log('\nRunning deterministic recovery batch demo...');
+    const recoveryBatch = await runRecoveryBatchDemo({
+      batchSize: 100,
+      seed: 20260905,
+      merchantId: 'recovery-demo-merchant',
+      clearExisting: true,
+    });
+    console.log(
+      `   OK recovery batch: ${recoveryBatch.summary.successfulRecoveries} recovered, ${recoveryBatch.summary.humanReviewPayments} human-review, ${recoveryBatch.summary.nonRecoverablePayments} stopped`,
+    );
+    if (recoveryBatch.summary.totalPaymentsAnalyzed !== 100) {
+      markFailure(
+        `Recovery batch produced ${recoveryBatch.summary.totalPaymentsAnalyzed} analyzed payments instead of 100`,
+      );
+    }
+    if (recoveryBatch.summary.totalRecoveredRevenue <= 0) {
+      markFailure('Recovery batch did not recover any revenue');
+    }
 
     try {
       await AuthService.login('alex@spendguard.demo', demoPassword);

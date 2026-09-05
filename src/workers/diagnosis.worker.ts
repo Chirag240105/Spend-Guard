@@ -12,6 +12,12 @@ import { PaymentService } from '@/src/modules/payments/payment.service';
 export async function diagnoseFailedPayment(
   paymentId: string,
   provider: AIProvider = new MockDiagnosisProvider(),
+  options: {
+    queueRecovery?: boolean;
+    maxAttempts?: number;
+    scenario?: string;
+    actor?: string;
+  } = {},
 ) {
   const prisma = getPrismaClient();
   const payment = await prisma.payment.findUniqueOrThrow({
@@ -34,9 +40,16 @@ export async function diagnoseFailedPayment(
   } catch {
     output = humanReviewDiagnosis('Diagnosis unavailable or invalid; human review required.');
   }
-  const action = decideRecovery(output, { retryCount: payment.retryCount });
+  const maxAttempts = options.maxAttempts ?? Number(process.env.MAX_RETRY_ATTEMPTS ?? 3);
+  const action = decideRecovery(output, { retryCount: payment.retryCount, maxAttempts });
   const decision = await prisma.agentDecision.create({
     data: { paymentId, inputSnapshot: context, output, policyAction: action },
   });
-  return enactRecovery(paymentId, decision.id, action, output.retry_after_seconds);
+  return enactRecovery(paymentId, decision.id, action, output.retry_after_seconds, {
+    diagnosis: output,
+    queueRecovery: options.queueRecovery,
+    maxAttempts,
+    scenario: options.scenario,
+    actor: options.actor ?? 'diagnosis-worker',
+  });
 }

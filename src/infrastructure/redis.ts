@@ -4,6 +4,19 @@ type RedisClient = ReturnType<typeof createClient>;
 
 let redisClient: RedisClient | null = null;
 
+function resolveRedisUrl(): string {
+  const configured = process.env.REDIS_URL;
+  if (configured) return configured;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'REDIS_URL is required in production. Configure the managed Redis endpoint in Vercel.',
+    );
+  }
+
+  return 'redis://localhost:6379';
+}
+
 /**
  * Get or create Redis client
  */
@@ -13,7 +26,7 @@ export async function getRedisClient(): Promise<RedisClient> {
   }
 
   const client = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    url: resolveRedisUrl(),
   });
 
   client.on('error', (err) => {

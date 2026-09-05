@@ -13,6 +13,16 @@ interface DashboardSummary {
   revenueRecovered: number;
   revenueAtRisk: number;
   recoveryRate: number;
+  recoveryAttempts: number;
+  recoverablePayments: number;
+  nonRecoverablePayments: number;
+  revenueRecoveryRate: number;
+  revenueProtectedFromUnnecessaryRetries: number;
+  averageRecoveryAttempts: number;
+  retrySuccessRate: number;
+  humanEscalationRate: number;
+  totalPaymentsAnalyzed: number;
+  totalFailedPayments: number;
 }
 
 interface ActivityItem {
@@ -29,6 +39,11 @@ interface ActivityItem {
   createdAt: string;
   approvalStatus: string | null;
   paymentStatus: string;
+  recoveryStatus: string;
+  attemptCount: number;
+  maxAttempts: number;
+  stopReason: string | null;
+  recoveredAmount: number;
 }
 
 const money = (n: number, cur = 'INR') =>
@@ -155,6 +170,24 @@ export default function Dashboard() {
     },
   ];
 
+  const recoveryCards = [
+    {
+      label: 'Revenue Recovery Rate',
+      value: `${summary.revenueRecoveryRate}%`,
+      sub: `${money(summary.revenueRecovered)} recovered from ${money(summary.revenueAtRisk)} at risk`,
+    },
+    {
+      label: 'Retry Success Rate',
+      value: `${summary.retrySuccessRate}%`,
+      sub: `${summary.recoveryAttempts} retry attempts across the batch`,
+    },
+    {
+      label: 'Human Escalation Rate',
+      value: `${summary.humanEscalationRate}%`,
+      sub: `${summary.humanReviewCount} cases routed to review`,
+    },
+  ];
+
   return (
     <div
       style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingBottom: 40 }}
@@ -190,6 +223,9 @@ export default function Dashboard() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <Link href="/recovery" className="secondary-button">
+            Recovery Demo
+          </Link>
           <Link href="/payments" className="secondary-button">
             View Payments
           </Link>
@@ -232,6 +268,12 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
         {kpis.map((k) => (
+          <KpiCard key={k.label} {...k} />
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+        {recoveryCards.map((k) => (
           <KpiCard key={k.label} {...k} />
         ))}
       </div>
@@ -281,6 +323,7 @@ export default function Dashboard() {
                   <th>Risk</th>
                   <th style={{ textAlign: 'right' }}>Amount</th>
                   <th>Payment Status</th>
+                  <th>Recovery Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -344,6 +387,35 @@ export default function Dashboard() {
                       >
                         {item.paymentStatus}
                       </span>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                        {item.recoveredAmount > 0
+                          ? `Recovered ${money(item.recoveredAmount, item.currency)}`
+                          : 'No payout yet'}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            color:
+                              item.recoveryStatus === 'SUCCESS'
+                                ? '#15803d'
+                                : item.recoveryStatus === 'STOPPED'
+                                  ? '#b91c1c'
+                                  : item.recoveryStatus === 'HUMAN_REVIEW'
+                                    ? '#d97706'
+                                    : '#1d4ed8',
+                          }}
+                        >
+                          {item.recoveryStatus}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {item.attemptCount}/{item.maxAttempts} attempts
+                          {item.stopReason ? ` · ${item.stopReason}` : ''}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 ))}
